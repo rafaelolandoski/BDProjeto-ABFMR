@@ -119,6 +119,18 @@ CREATE TABLE Organizacao(
     org_tipo tp,
 );
 
+CREATE TABLE Org_Evento(
+    CNPJ char(14) NOT NULL,
+    id_evento integer,
+    CONSTRAINT pk_org_evento PRIMARY KEY(CNPJ, id_evento),
+    CONSTRAINT fk_org_cnpj FOREIGN KEY(CNPJ)
+    REFERENCES Organizacao(CNPJ)
+    ON DELETE OR UPDATE CASCADE,
+    CONSTRAINT fk_evento_id FOREIGN KEY(id_evento)
+    REFERENCES Evento (id_evento)
+    ON DELETE OR UPDATE CASCADE
+);
+
 CREATE TABLE Part_Evento(
     id_evento integer NOT NULL,
     CPF char(11) NOT NULL,
