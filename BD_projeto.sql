@@ -62,7 +62,7 @@ CREATE TABLE Recurso(
     validade integer, --anos,
 
     CONSTRAINT fk_tipo_recurso FOREIGN KEY (id_tipo) 
-    REFERENCES Tipo_Recurso (id_tipo) ON DELETE CASCADE ON UPDATE CASCADE,
+    REFERENCES Tipo_Recurso (id_tipo) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_rec_espaco FOREIGN KEY (id_espaco)
     REFERENCES Espaco(id_espaco) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT ck_validade CHECK(validade > 0)
@@ -186,7 +186,7 @@ CREATE TABLE Ativ_Tipo_Recurso(
     CONSTRAINT fk_tipo_atr FOREIGN KEY (id_tipo) 
     REFERENCES Tipo_Recurso (id_tipo) ON DELETE CASCADE ON UPDATE CASCADE
 );
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
 CREATE TABLE Pales_Ativ(
     CPF char(11),
     id_atividade integer,
