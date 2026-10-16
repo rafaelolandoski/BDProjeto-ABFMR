@@ -72,10 +72,10 @@ CREATE TABLE Pessoa(
     CPF char (11) PRIMARY KEY,
     nome varchar(50) NOT NULL,
     email varchar(50) UNIQUE,
-    e_palestrante boolean DEFAULT FALSE,
-    e_organizador boolean DEFAULT FALSE,
-    e_participante boolean DEFAULT FALSE,
-    e_instrutor boolean DEFAULT FALSE,
+    e_palestrante boolean NOT NULL DEFAULT FALSE,
+    e_organizador boolean NOT NULL DEFAULT FALSE,
+    e_participante boolean NOT NULL DEFAULT FALSE,
+    e_instrutor boolean NOT NULL DEFAULT FALSE,
 
     CONSTRAINT ck_pelo_menos_um CHECK
     (e_palestrante = TRUE OR e_instrutor = TRUE OR e_organizador = TRUE OR e_participante = TRUE )
@@ -125,10 +125,10 @@ CREATE TABLE Org_Evento(
     CONSTRAINT pk_org_evento PRIMARY KEY(CNPJ, id_evento),
     CONSTRAINT fk_org_cnpj FOREIGN KEY(CNPJ)
     REFERENCES Organizacao(CNPJ)
-    ON DELETE ON UPDATE CASCADE,
+    ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_evento_id FOREIGN KEY(id_evento)
     REFERENCES Evento (id_evento)
-    ON DELETE ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE Part_Evento(
@@ -178,7 +178,7 @@ CREATE TABLE Inst_Sessao(
 CREATE TABLE Ativ_Tipo_Recurso(
     id_atividade integer NOT NULL,
     id_tipo integer NOT NULL,
-    quantidade smallint DEFAULT 1,
+    quantidade smallint NOT NULL DEFAULT 1,
     CONSTRAINT ck_qtd CHECK (quantidade >0),
     CONSTRAINT pk_ativ_tipo_recurso PRIMARY KEY(id_atividade,id_tipo),
     CONSTRAINT fk_ativ_atr FOREIGN KEY(id_atividade)
@@ -186,7 +186,7 @@ CREATE TABLE Ativ_Tipo_Recurso(
     CONSTRAINT fk_tipo_atr FOREIGN KEY (id_tipo) 
     REFERENCES Tipo_Recurso (id_tipo) ON DELETE CASCADE ON UPDATE CASCADE
 );
-
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 CREATE TABLE Pales_Ativ(
     CPF char(11),
     id_atividade integer,
