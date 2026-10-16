@@ -180,3 +180,10 @@ CREATE TABLE Pales_Ativ(
     CONSTRAINT
 );
 
+CREATE TABLE Organizador_Organizacao(
+    CPF char(11) NOT NULL,
+    CNPJ char(14) NOT NULL,
+    CONSTRAINT pk_organizador_organizacao PRIMARY KEY(CPF, CNPJ),
+    CONSTRAINT fk_organizador_oo FOREIGN KEY (CPF) REFERENCES Organizador(CPF) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_organizacao_oo FOREIGN KEY (CNPJ) REFERENCES Organizacao(CNPJ) ON UPDATE CASCADE ON DELETE CASCADE
+);
