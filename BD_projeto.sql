@@ -1,6 +1,5 @@
 
-CREATE TYPE proposito AS ENUM ('Audio', 'Microfone', 'Computador', 'Projetor');
-CREATE TYPE categ AS ENUM ('Ensino_medio', 'Graduando', 'Pos-Graduando', 'Professor');
+CREATE TYPE proposito AS ENUM ('Audio', 'Microfone', 'Computador', 'Projetor','Quadro','Mesa','Ventilacao');
 CREATE TYPE tp AS ENUM ('Individuo', 'Empresa', 'Universidade', "Associacao");
 
 CREATE TABLE Evento(
@@ -70,7 +69,6 @@ CREATE TABLE Recurso(
 CREATE TABLE Pessoa(
     CPF char (11) PRIMARY KEY,
     nome varchar(50) NOT NULL,
-    categoria categ DEFAULT 'Graduando',
     e_palestrante boolean DEFAULT FALSE,
     e_organizador boolean DEFAULT FALSE,
     e_participante boolean DEFAULT FALSE,
@@ -116,7 +114,7 @@ CREATE TABLE Organizador(
 CREATE TABLE Organizacao(
     CNPJ char(14) PRIMARY KEY,
     nome varchar(50) NOT NULL,
-    org_tipo tp,
+    org_tipo tp
 );
 
 CREATE TABLE Org_Evento(
