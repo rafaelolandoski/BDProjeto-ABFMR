@@ -175,8 +175,13 @@ CREATE TABLE Ativ_Tipo_Recurso(
 );
 
 CREATE TABLE Pales_Ativ(
-    CPF char(11) NOT NULL,
-    id_atividade integer NOT NULL,
-    CONSTRAINT
+    CPF char(11),
+    id_atividade integer,
+    CONSTRAINT pk_pales_ativ PRIMARY KEY (CPF,id_atividade),
+    CONSTRAINT fk_pales_pa FOREIGN KEY (CPF) 
+    REFERENCES Palestrante (CPF) ON DELETE CASCADE ON UPDATE RESTRICT,
+    CONSTRAINT fk_ativ_pa FOREIGN KEY (id_atividade)
+    REFERENCES Atividade (id_atividade) ON DELETE CASCADE ON UPDATE RESTRICT
+
 );
 
