@@ -32,9 +32,11 @@ CREATE TABLE Sessao(
     id_atividade integer NOT NULL,
     id_espaco integer NOT NULL,
     horario_inicio timestamp NOT NULL,
+    horario_fim timestamp NOT NULL,
     vagas smallint, -- se nulo, não tem limite
     CONSTRAINT pk_sessao PRIMARY KEY (id_atividade,n_sessao),
     CONSTRAINT ck_vagas CHECK (vagas > 0 OR vagas IS NULL), --se vagas for nulo, não tem limite
+    CONSTRAINT ck_horario CHECK(horario_inicio < horario_fim),
     CONSTRAINT fk_sessao_espaco FOREIGN KEY (id_espaco) 
     REFERENCES Espaco(id_espaco) ON DELETE CASCADE,
 
