@@ -7,10 +7,13 @@ data_fim_evento DATE;
 capacidade_espaco smallint;
 BEGIN
 
-    SELECT data_inicio,data_fim INTO data_inicio_evento,data_fim_evento
-    FROM Evento WHERE id_evento = NEW.id_evento;
+    SELECT e.data_inicio, e.data_fim INTO data_inicio_evento, data_fim_evento
+    FROM Atividade a JOIN Evento e ON a.id_evento = e.id_evento
+    WHERE a.id_atividade = NEW.id_atividade;
+    
     SELECT capacidade INTO capacidade_espaco FROM Espaco
     WHERE id_espaco = NEW.id_espaco;
+    
    -- se as vagas de sessão forem maiores que a capacidade do espaço
     IF NEW.vagas IS NOT NULL AND capacidade_espaco < NEW.vagas THEN
         RAISE EXCEPTION 'Erro: A quantidade de vagas da sessão (%) ultrapassa a capacidade máxima do espaço selecionado (%).',
