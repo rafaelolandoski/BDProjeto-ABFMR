@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION validar_sessao();
+CREATE OR REPLACE FUNCTION validar_sessao()
 RETURNS TRIGGER AS $$
 DECLARE
 data_inicio_evento DATE;
@@ -9,6 +9,12 @@ BEGIN
     SELECT data_inicio,data_fim INTO data_inicio_evento,data_fim_evento
     FROM Evento WHERE id_evento = NEW.id_evento;
     SELECT capacidade INTO capacidade_espaco FROM Espaco
+    WHERE id_espaco = NEW.id_espaco;
+   -- se as vagas de sessão forem maiores que a capacidade do espaço
+    IF NEW.vagas IS NOT NULL AND capacidade_espaco < NEW.vagas THEN
+        RAISE EXCEPTION 'Erro: A quantidade de vagas da sessão (%) ultrapassa a capacidade máxima do espaço selecionado (%).',
+        NEW.vagas, capacidade_espaco;
+    END IF;
     
 -- se a sessão está dentro da data do evento
     IF (NEW.horario_inicio::DATE) < data_inicio_evento OR (NEW.horario_inicio::DATE) > data_fim_evento 
@@ -19,7 +25,7 @@ BEGIN
 
 --espaço ocupado se o espaço já tiver outra sessão no mesmo horário bloqueia
     IF EXISTS( SELECT 1 FROM Sessao WHERE id_espaco=NEW.id_espaco 
-        AND NOT (TG_OP = 'UPDATE' AND n_sessao = OLD.n_Sessao AND id_atividade = OLD.id_atividade)
+        AND NOT (TG_OP = 'UPDATE' AND n_sessao = OLD.n_sessao AND id_atividade = OLD.id_atividade)
         AND (NEW.horario_inicio, NEW.horario_fim ) OVERLAPS (horario_inicio,horario_fim)
         )
         THEN RAISE EXCEPTION 'Erro: outra sessao ja esta com o horario agendado';
@@ -48,19 +54,25 @@ EXECUTE FUNCTION validar_sessao();
 
 
 --trigger pra inscricao de participante
-CREATE OR REPLACE FUNCTION inscrever_participante();
+CREATE OR REPLACE FUNCTION inscrever_participante()
 RETURNS TRIGGER AS $$
 DECLARE
 vagas_sessao smallint;
+qtd_inscritos smallint;
 BEGIN
---checa se tem espaço na sessão
+
+    --checa se tem espaço na sessão
     SELECT vagas INTO vagas_sessao
     FROM Sessao WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
-
-    SELECT COUNT(*) AS qtd_inscritos FROM Part_Sessao
-    WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+    --se sessão ilimitada, não é pra aparecer em participante_sessão
+    IF vagas_sessao IS NULL THEN
+        RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
+    END IF;
     
-    IF vagas_sessao IS NOT NULL AND (qtd_inscritos >= vagas_sessao) THEN
+    SELECT COUNT(*) INTO qtd_inscritos FROM Part_Sessao
+    WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+    --se checa se sessão esta cheia ou nao
+    IF qtd_inscritos >= vagas_sessao THEN
         INSERT INTO Lista_de_Espera (CPF,n_sessao,id_atividade) VALUES (NEW.CPF,NEW.n_sessao,NEW.id_atividade);
         RAISE NOTICE 'Limite de vagas da sessão já atingido, participante colocado na lista de espera';
         RETURN NULL;
@@ -68,7 +80,7 @@ BEGIN
     RETURN NEW;
 END;
 
-$$ LANGUAGE plpgsql
-CREATE TRIGGER inscricao_participante_sessao();
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER inscricao_participante_sessao
 BEFORE INSERT ON Part_Sessao FOR EACH ROW
 EXECUTE FUNCTION inscrever_participante();
