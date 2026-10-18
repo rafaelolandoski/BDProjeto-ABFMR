@@ -3,10 +3,12 @@ RETURNS TRIGGER AS $$
 DECLARE
 data_inicio_evento DATE;
 data_fim_evento DATE;
+capacidade_espaco smallint;
 BEGIN
 
     SELECT data_inicio,data_fim INTO data_inicio_evento,data_fim_evento
     FROM Evento WHERE id_evento = NEW.id_evento;
+    SELECT capacidade INTO capacidade_espaco FROM Espaco
     
 -- se a sessão está dentro da data do evento
     IF (NEW.horario_inicio::DATE) < data_inicio_evento OR (NEW.horario_inicio::DATE) > data_fim_evento 
@@ -43,3 +45,30 @@ CREATE TRIGGER check_sessao_valida
 BEFORE INSERT OR UPDATE ON Sessao
 FOR EACH ROW
 EXECUTE FUNCTION validar_sessao();
+
+
+--trigger pra inscricao de participante
+CREATE OR REPLACE FUNCTION inscrever_participante();
+RETURNS TRIGGER AS $$
+DECLARE
+vagas_sessao smallint;
+BEGIN
+--checa se tem espaço na sessão
+    SELECT vagas INTO vagas_sessao
+    FROM Sessao WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+
+    SELECT COUNT(*) AS qtd_inscritos FROM Part_Sessao
+    WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+    
+    IF vagas_sessao IS NOT NULL AND (qtd_inscritos >= vagas_sessao) THEN
+        INSERT INTO Lista_de_Espera (CPF,n_sessao,id_atividade) VALUES (NEW.CPF,NEW.n_sessao,NEW.id_atividade);
+        RAISE NOTICE 'Limite de vagas da sessão já atingido, participante colocado na lista de espera';
+        RETURN NULL;
+    END IF;
+    RETURN NEW;
+END;
+
+$$ LANGUAGE plpgsql
+CREATE TRIGGER inscricao_participante_sessao();
+BEFORE INSERT ON Part_Sessao FOR EACH ROW
+EXECUTE FUNCTION inscrever_participante();
