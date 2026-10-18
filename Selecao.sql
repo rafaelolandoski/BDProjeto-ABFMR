@@ -15,7 +15,7 @@ JOIN Atividade A ON S.id_atividade = A.id_atividade
 JOIN Evento E ON A.id_evento = E.id_evento
 WHERE E.nome = 'Semana de Tecnologia' AND E.edicao = 5 AND A.titulo = 'Minicurso de Python';
 
-
+--seleciona todos os espaços livres em determinado horário
 SELECT e.id_espaco,e.nome AS nome_espaco,e.capacidade FROM Espaco e
 WHERE NOT EXISTS( SELECT 1 FROM Sessao s 
     WHERE s.id_espaco = e.id_espaco 
