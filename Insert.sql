@@ -313,15 +313,3 @@ INSERT INTO Pales_Ativ (CPF, id_atividade) VALUES
 ('11122233344', 9);
 
 COMMIT;
-
--- =====================================================================
--- Optional: exercise the triggers
--- =====================================================================
--- 1) Waitlist promotion: remove someone from the full session (2, atividade 2);
---    João (00011122233) should be promoted automatically.
--- DELETE FROM Part_Sessao WHERE CPF = '88899900011' AND n_sessao = 2 AND id_atividade = 2;
--- SELECT * FROM Part_Sessao WHERE n_sessao = 2 AND id_atividade = 2;
--- SELECT * FROM Lista_de_Espera WHERE n_sessao = 2 AND id_atividade = 2;
---
--- 2) Overflow goes to the waitlist (session 1 of activity 7 is full):
--- INSERT INTO Part_Sessao VALUES ('99900011122', 1, 7);  -- NOTICE + row goes to Lista_de_Espera
