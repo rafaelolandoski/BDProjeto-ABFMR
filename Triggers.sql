@@ -52,7 +52,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_sessao_valida
+CREATE OR REPLACE TRIGGER check_sessao_valida
 BEFORE INSERT OR UPDATE ON Sessao
 FOR EACH ROW
 EXECUTE FUNCTION validar_sessao();
@@ -116,7 +116,7 @@ BEGIN
 END;
 
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER inscricao_participante_sessao
+CREATE OR REPLACE TRIGGER inscricao_participante_sessao
 BEFORE INSERT ON Part_Sessao FOR EACH ROW
 EXECUTE FUNCTION inscrever_participante();
 
@@ -146,7 +146,7 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql;
-CREATE TRIGGER inscricao_participante_espera
+CREATE OR REPLACE TRIGGER inscricao_participante_espera
 AFTER DELETE ON Part_Sessao FOR EACH ROW
 EXECUTE FUNCTION inscrever_da_espera();
 
@@ -167,7 +167,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_instrutor_sessao
+CREATE OR REPLACE TRIGGER check_instrutor_sessao
 BEFORE INSERT OR UPDATE ON Inst_Sessao
 FOR EACH ROW
 EXECUTE FUNCTION validar_instrutor_sessao();
@@ -194,7 +194,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_palestrante_atividade
+CREATE OR REPLACE TRIGGER check_palestrante_atividade
 BEFORE INSERT OR UPDATE ON Pales_Ativ
 FOR EACH ROW
 EXECUTE FUNCTION validar_palestrante_atividade();
@@ -219,7 +219,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_organizacao_organizador
+CREATE OR REPLACE TRIGGER check_organizacao_organizador
 BEFORE INSERT OR UPDATE ON Organizador_Organizacao
 FOR EACH ROW
 EXECUTE FUNCTION validar_organizacao_organizador();
