@@ -1,3 +1,4 @@
+--1: trigger para insercao de sessao
 CREATE OR REPLACE FUNCTION validar_sessao()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -53,20 +54,40 @@ FOR EACH ROW
 EXECUTE FUNCTION validar_sessao();
 
 
---trigger pra inscricao de participante
+--2: trigger pra inscricao de participante
 CREATE OR REPLACE FUNCTION inscrever_participante()
 RETURNS TRIGGER AS $$
 DECLARE
 vagas_sessao smallint;
 qtd_inscritos smallint;
+id_atv integer;
 BEGIN
 
     --checa se tem espaço na sessão
-    SELECT vagas INTO vagas_sessao
+    SELECT id_atividade,vagas INTO id_atv,vagas_sessao
     FROM Sessao WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
     --se sessão ilimitada, não é pra aparecer em participante_sessão
     IF vagas_sessao IS NULL THEN
         RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
+    END IF;
+    
+    --Participante não pode ser instrutor da mesma sessão
+    IF EXISTS (
+        SELECT 1 FROM Inst_Sessao 
+         WHERE CPF = NEW.CPF 
+           AND n_sessao = NEW.n_sessao 
+           AND id_atividade = NEW.id_atividade
+    ) THEN
+        RAISE EXCEPTION 'Erro: Um instrutor não pode inscrever-se como participante na mesma sessão em que ajuda.';
+    END IF;
+    
+    -- Participante não pode ser palestrante da mesma atividade
+    IF EXISTS (
+        SELECT 1 FROM Pales_Ativ 
+         WHERE CPF = NEW.CPF 
+           AND id_atividade = id_atv
+    ) THEN
+        RAISE EXCEPTION 'Erro: Um palestrante não pode inscrever-se como participante numa sessão de uma atividade que ele próprio apresenta.';
     END IF;
     
     SELECT COUNT(*) INTO qtd_inscritos FROM Part_Sessao
@@ -84,3 +105,82 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER inscricao_participante_sessao
 BEFORE INSERT ON Part_Sessao FOR EACH ROW
 EXECUTE FUNCTION inscrever_participante();
+
+--3: se algum participante deixa de ser inscrito em uma sessão cheia, inscreve o próximo da lista de espera
+CREATE OR REPLACE FUNCTION inscrever_da_espera()
+RETURNS TRIGGER AS $$
+DECLARE
+proximo char(11);
+BEGIN
+-- se tiver um participante inscrito na lista de espera da seção, pega o mínimo
+    
+    SELECT CPF INTO proximo FROM Lista_de_Espera
+    WHERE n_sessao = OLD.n_sessao AND id_atividade=OLD.id_atividade
+    ORDER BY dataInscricao ASC, CPF ASC LIMIT 1;
+    
+    
+    IF proximo IS NOT NULL THEN
+        INSERT INTO Part_Sessao VALUES (proximo,OLD.n_sessao,OLD.id_atividade);
+        
+        DELETE  FROM Lista_de_Espera WHERE CPF = proximo
+        AND n_sessao = OLD.n_sessao AND id_atividade=OLD.id_atividade;
+        
+        RAISE NOTICE 'Participante na fila de espera inscrito sessao';
+    END IF;
+    
+    RETURN OLD;
+
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER inscricao_participante_espera
+AFTER DELETE ON Part_Sessao FOR EACH ROW
+EXECUTE FUNCTION inscrever_da_espera();
+
+--4: valida instrutor
+CREATE OR REPLACE FUNCTION validar_instrutor_sessao()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS(SELECT 1 FROM Part_Sessao 
+        WHERE CPF = NEW.CPF AND n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Esta pessoa já está inscrita como participante nesta sessão e não pode ser instrutor.';
+    END IF; 
+
+    IF EXISTS (SELECT 1 FROM Pales_Ativ 
+        WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        )THEN RAISE EXCEPTION 'Erro: Esta pessoa já está inscrita como palestrante nesta sessão e não pode ser instrutor.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_instrutor_sessao
+BEFORE INSERT OR UPDATE ON Inst_Sessao
+FOR EACH ROW
+EXECUTE FUNCTION validar_instrutor_sessao();
+
+--5: valida palestrante
+CREATE OR REPLACE FUNCTION validar_palestrante_atividade()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validação: Palestrante não pode ter inscrições ativas como participante em sessões desta atividade
+    IF EXISTS (
+        SELECT 1 FROM Part_Sessao
+            WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Este palestrante já possui inscrição como participante em sessões desta atividade.';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM Inst_Sessao
+            WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Este palestrante já possui inscrição como instrutor em sessões desta atividade.';
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_palestrante_atividade
+BEFORE INSERT OR UPDATE ON Pales_Ativ
+FOR EACH ROW
+EXECUTE FUNCTION validar_palestrante_atividade();
