@@ -42,8 +42,9 @@ BEGIN
         WHERE id_espaco = NEW.id_espaco GROUP BY id_tipo)
         
         --se qualquer id_tipo de recurso no espaço tiver uma quantidade menor que o necessário
-        SELECT 1 FROM Atividade atv LEFT JOIN esp_rec er ON atv.id_tipo = er.id_tipo
-        WHERE atv.id_atividade=NEW.id_atividade AND COALESCE(er.qtd_rec,0) < atv.quantidade
+        SELECT 1 FROM Atividade atv LEFT JOIN Ativ_Tipo_Recurso atr on atv.id_atividade = atr.id_atividade
+        LEFT JOIN esp_rec er ON atr.id_tipo = er.id_tipo
+        WHERE atv.id_atividade=NEW.id_atividade AND COALESCE(er.qtd_rec,0) < atr.quantidade
         ) THEN RAISE EXCEPTION 'Erro: O espaço não possui recursos o suficiente';
     END IF;
 
@@ -74,6 +75,16 @@ BEGIN
         RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
     END IF;
     
+    --Participante deve estar inscrito no evento da atividade
+    IF NOT EXISTS (
+        SELECT 1 FROM Part_Evento PE
+        JOIN Atividade A on A.id_atividade = NEW.id_atividade
+         WHERE CPF = NEW.CPF 
+           AND PE.id_evento = A.id_evento
+    ) THEN
+        RAISE EXCEPTION 'Erro: Participante não está inscrito no evento da atividade.';
+    END IF;
+
     --Participante não pode ser instrutor da mesma sessão
     IF EXISTS (
         SELECT 1 FROM Inst_Sessao 
@@ -196,7 +207,7 @@ BEGIN
     -- Validação: Organização individual não pode ter mais de um organizador
     IF EXISTS (
         SELECT 1 FROM Organizacao
-            WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individual'
+            WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individuo'
         ) AND EXISTS (
             SELECT 1 FROM Organizador_Organizacao
             WHERE CNPJ = NEW.CNPJ
