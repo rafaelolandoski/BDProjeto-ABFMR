@@ -187,3 +187,28 @@ CREATE TRIGGER check_palestrante_atividade
 BEFORE INSERT OR UPDATE ON Pales_Ativ
 FOR EACH ROW
 EXECUTE FUNCTION validar_palestrante_atividade();
+
+--6: valida organização
+
+CREATE OR REPLACE FUNCTION validar_organizacao_organizador()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validação: Organização individual não pode ter mais de um organizador
+    IF EXISTS (
+        SELECT 1 FROM Organizacao
+            WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individual'
+        ) AND EXISTS (
+            SELECT 1 FROM Organizador_Organizacao
+            WHERE CNPJ = NEW.CNPJ
+        ) THEN RAISE EXCEPTION 'Erro: Esta organização individual já possui um organizador.';
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_organizacao_organizador
+BEFORE INSERT OR UPDATE ON Organizador_Organizacao
+FOR EACH ROW
+EXECUTE FUNCTION validar_organizacao_organizador();
