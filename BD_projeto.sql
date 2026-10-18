@@ -19,14 +19,16 @@ CREATE TABLE Atividade(
     descricao text,
     CONSTRAINT fk_atv_evento FOREIGN KEY (id_evento)
     REFERENCES evento(id_evento) ON DELETE CASCADE ON UPDATE RESTRICT
+    CONSTRAINT uq_titulo_evento UNIQUE(titulo,id_evento)
 );
+
 CREATE TABLE Espaco(
     id_espaco integer PRIMARY KEY,
     nome varchar(50) NOT NULL,
     capacidade smallint NOT NULL,
     CONSTRAINT ck_cap CHECK(capacidade >0 OR capacidade IS NULL)-- se capacidade for nula, é ilimitada
-
 );
+
 CREATE TABLE Sessao(
     n_sessao smallint NOT NULL,
     id_atividade integer NOT NULL,
@@ -95,8 +97,6 @@ CREATE TABLE Participante(
     CPF char(11) PRIMARY KEY,
     CONSTRAINT fk_parti FOREIGN KEY (CPF)
     REFERENCES Pessoa(CPF) ON DELETE CASCADE ON UPDATE CASCADE
-    
-
 );
 CREATE TABLE Instrutor(
     CPF char(11) PRIMARY KEY,
