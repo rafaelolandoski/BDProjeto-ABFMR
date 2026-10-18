@@ -193,7 +193,6 @@ INSERT INTO Organizacao (CNPJ, nome, org_tipo) VALUES
 ('33444555000163', 'Associação Brasileira de Dados', 'Associacao'),
 ('44555666000154', 'DataWorks S.A.',                 'Empresa'),
 ('55666777000145', 'João Autônomo (MEI)',            'Individuo'),
-('66777888000136', 'Instituto Sem Tipo',             NULL);
 
 INSERT INTO Org_Evento (CNPJ, id_evento) VALUES
 ('11222333000181', 1),
