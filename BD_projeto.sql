@@ -118,7 +118,7 @@ CREATE TABLE Organizador(
 CREATE TABLE Organizacao(
     CNPJ char(14) PRIMARY KEY,
     nome varchar(50) NOT NULL,
-    org_tipo tp
+    org_tipo tp NOT NULL
 );
 
 CREATE TABLE Org_Evento(
