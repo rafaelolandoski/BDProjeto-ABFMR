@@ -1,4 +1,4 @@
-
+--tentei ser elegante
 CREATE TYPE proposito AS ENUM ('Audio', 'Microfone', 'Computador', 'Projetor','Quadro','Mesa','Ventilacao');
 CREATE TYPE tp AS ENUM ('Individuo', 'Empresa', 'Universidade', 'Associacao');
 
