@@ -281,7 +281,7 @@ INSERT INTO Organizacao (CNPJ, nome, org_tipo) VALUES
 ('33444555000163', 'Associação Brasileira de Dados',      'Associacao'),
 ('44555666000154', 'DataWorks S.A.',                      'Empresa'),
 ('55666777000145', 'João Autônomo (MEI)',                 'Individuo'),
-('66777888000136', 'Instituto Sem Tipo',                  NULL),
+('66777888000136', 'Instituto Sem Fronteiras',                  'Empresa'),
 ('77888999000127', 'Universidade Estadual de Tecnologia', 'Universidade'),
 ('88999000000118', 'Associação de Segurança Digital',     'Associacao'),
 ('99000111000109', 'Maria Consultoria',                   'Individuo'),
