@@ -66,3 +66,31 @@ JOIN Lista_de_Espera L ON S.n_sessao = L.n_sessao AND S.id_atividade = L.id_ativ
 JOIN Pessoa P ON L.CPF = P.CPF
 JOIN Atividade A ON S.id_atividade = A.id_atividade
 JOIN Evento E ON A.id_evento = E.id_evento;
+
+-- quantidade de participantes inscritos por evento
+SELECT
+    E.nome AS evento,
+    E.edicao,
+    COUNT(PE.CPF) AS total_participantes
+FROM Evento E
+LEFT JOIN Part_Evento PE
+    ON E.id_evento = PE.id_evento
+GROUP BY E.id_evento, E.nome, E.edicao
+ORDER BY total_participantes DESC;
+
+
+-- atividades que possuem mais de uma sessão
+SELECT
+    A.titulo AS atividade,
+    E.nome AS evento,
+    E.edicao,
+    COUNT(S.n_sessao) AS quantidade_sessoes
+FROM Atividade A
+JOIN Evento E
+    ON A.id_evento = E.id_evento
+JOIN Sessao S
+    ON A.id_atividade = S.id_atividade
+GROUP BY A.id_atividade, A.titulo,
+         E.id_evento, E.nome, E.edicao
+HAVING COUNT(S.n_sessao) > 1
+ORDER BY quantidade_sessoes DESC;
