@@ -18,7 +18,7 @@ CREATE TABLE Atividade(
     titulo varchar(50) NOT NULL,
     descricao text,
     CONSTRAINT fk_atv_evento FOREIGN KEY (id_evento)
-    REFERENCES evento(id_evento) ON DELETE CASCADE ON UPDATE RESTRICT;
+    REFERENCES evento(id_evento) ON DELETE CASCADE ON UPDATE RESTRICT,
     CONSTRAINT uq_titulo_evento UNIQUE(titulo,id_evento)
 );
 
