@@ -1,0 +1,164 @@
+============================================================
+SCC0640 - INSTRUCOES DE INSTALACAO E EXECUCAO
+============================================================
+GRUPO: ABFMR
+
+INTEGRANTES:
+- Alexandre Coura Serravite
+- Bruno Baremaker Moraes
+- Felipe Freitas Maia
+- Matheus Watanabe
+- Rafael Olandoski de Oliveira
+
+MODELO UTILIZADO NO OLLAMA: qwen3:8b
+
+============================================================
+1. REQUISITOS DE SOFTWARE
+============================================================
+- Python 3.11 ou superior
+- PostgreSQL 14 ou superior (os triggers usam CREATE OR REPLACE TRIGGER)
+- Ollama (servidor local, instalado a parte: https://ollama.com/download)
+  Use uma versao recente; versoes antigas nao executam o qwen3.
+- Modelo qwen3:8b baixado no Ollama (cerca de 5 GB; recomendado ter
+  pelo menos 8 GB de RAM livre)
+- Bibliotecas Python: ollama e psycopg[binary] (instaladas pelo
+  requirements.txt)
+
+IMPORTANTE: "pip install ollama" instala apenas o cliente Python.
+O servidor do Ollama precisa estar instalado e em execucao.
+
+============================================================
+2. ESTRUTURA DOS ARQUIVOS
+============================================================
+ProjetoBD/
+|-- Projeto.txt
+|-- DML.sql
+|-- Prototipo/
+    |-- main.py
+    |-- config.json
+    |-- requirements.txt
+
+O Projeto.txt deve permanecer na pasta acima de Prototipo, pois o
+main.py o le para obter o DDL e as consultas.
+
+============================================================
+3. CRIACAO DA BASE DE DADOS
+============================================================
+3.1 Crie um banco vazio chamado "eventos" (ou outro nome, ajustando
+    depois o config.json):
+
+    psql -U postgres -c "CREATE DATABASE eventos;"
+
+3.2 Execute o DDL. Ele esta no Projeto.txt, na secao "3. DDL COMPLETO",
+    entre os cabecalhos "3. DDL COMPLETO" e "4. CONSULTAS".
+    Copie esse trecho (sem as linhas de "=====" dos cabecalhos) e
+    execute-o no banco "eventos", por exemplo:
+
+    - no psql:    psql -U postgres -d eventos
+                  e cole o trecho no prompt; ou
+    - no pgAdmin/DBeaver: abra o editor de consultas do banco
+      "eventos", cole o trecho e execute o script inteiro.
+
+    O DDL cria tipos, tabelas, funcoes e triggers e deve executar
+    sem erros em um banco vazio.
+
+============================================================
+4. EXECUCAO DO DML (POPULAR O BANCO)
+============================================================
+Com o DDL ja executado, rode:
+
+    psql -U postgres -d eventos -f DML.sql
+
+O DML.sql limpa as tabelas (TRUNCATE) antes de inserir os dados,
+portanto pode ser executado novamente sem causar duplicidade.
+
+============================================================
+5. EXECUCAO DO PROTOTIPO
+============================================================
+5.1 Ollama: com o Ollama instalado, baixe o modelo uma unica vez e
+    mantenha o servidor em execucao (no Windows/macOS, basta o
+    aplicativo estar aberto; no Linux, ou se necessario, rode
+    "ollama serve" em outro terminal):
+
+    ollama pull qwen3:8b
+
+    Para conferir, abra http://localhost:11434 no navegador (deve
+    exibir "Ollama is running") e rode "ollama list".
+
+5.2 Entre na pasta do prototipo:
+
+    cd ProjetoBD/Prototipo
+
+    As dependencias (ollama e psycopg[binary]) sao instaladas
+    automaticamente pelo main.py na primeira execucao, caso ainda
+    nao estejam presentes. Se a instalacao automatica falhar, instale
+    manualmente:
+
+    python -m pip install -r requirements.txt
+
+5.3 Edite APENAS o config.json com os dados do seu ambiente:
+
+    {
+    "database": {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "eventos",
+    "user": "postgres",
+    "password": "postgres"
+    },
+    "ollama": {
+    "host": "http://localhost:11434",
+    "model": "qwen3:8b"
+    }
+    }
+
+5.4 Execute:
+
+    python main.py
+
+5.5 Uso do programa:
+    - Ao iniciar, o programa exibe os parametros de conexao lidos do
+      config.json (senha oculta) e pergunta se deseja altera-los.
+      Responda "n" (ou Enter) para usar os valores do arquivo.
+    - Menu principal:
+        [1] Executar consultas predefinidas: lista as consultas da
+            secao "4. CONSULTAS" do Projeto.txt; permite executar uma
+            delas ou todas ("t"), exibindo o SQL e o resultado em
+            tabela.
+        [2] Pergunta em linguagem natural: digite uma pergunta em
+            portugues; o modelo do Ollama gera o SQL, que e exibido,
+            executado e o resultado (ou a mensagem de erro) e
+            apresentado. Digite "sair" ou Enter vazio para voltar.
+        [3] Alterar conexao com o banco.
+        [0] Sair.
+
+============================================================
+6. LIMITACOES E OBSERVACOES
+============================================================
+- A resposta do Ollama pode demorar, principalmente na primeira
+  pergunta (carregamento do modelo) e em maquinas sem GPU. O qwen3
+  gera um trecho de raciocinio antes do SQL; esse trecho e removido
+  automaticamente.
+- A qualidade do SQL gerado depende do modelo. Se a consulta falhar,
+  o programa tenta uma correcao automatica (1 tentativa) usando o
+  erro do PostgreSQL e, persistindo o erro, exibe a mensagem.
+- O DDL enviado ao modelo e extenso. Se o Ollama usar contexto muito
+  pequeno, o esquema pode ser truncado e o modelo pode citar tabelas
+  ou colunas inexistentes. Se isso ocorrer, aumente o contexto do
+  Ollama (por exemplo, variavel de ambiente OLLAMA_CONTEXT_LENGTH=8192
+  antes de iniciar o servidor) ou use outro modelo no config.json.
+- A conexao com o banco e somente leitura: apenas consultas
+  (SELECT) sao executadas; comandos que alterem dados sao bloqueados.
+  Cada execucao tem limite de 30 segundos.
+- Resultados sao limitados a 50 linhas na tela e textos longos sao
+  abreviados nas celulas.
+- Com os dados do DML.sql, a CONSULTA 1 retorna zero linhas (o evento
+  filtrado nela nao esta cadastrado) e a CONSULTA 3 lista todos os
+  espacos, pois nao ha sessoes na data consultada.
+- Nao ha historico de alteracoes de sessoes (decisao de projeto Q6).
+- O programa funciona apenas em linha de comando; nao ha interface
+  grafica.
+- Nao ha funcionalidades conhecidas como nao concluidas.
+============================================================
+FIM DO ARQUIVO
+============================================================
