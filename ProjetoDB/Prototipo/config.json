@@ -1,0 +1,13 @@
+{
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "dbname": "eventos",
+        "user": "postgres",
+        "password": "postgres"
+    },
+    "ollama": {
+        "host": "http://localhost:11434",
+        "model": "qwen3:8b"
+    }
+}
