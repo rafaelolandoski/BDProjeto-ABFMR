@@ -1,0 +1,471 @@
+============================================================
+SCC0640 - PROJETO DE BASES DE DADOS
+============================================================
+GRUPO:
+INTEGRANTES:
+MODELO UTILIZADO NO OLLAMA:
+============================================================
+1. DESCRICAO FINAL DO SISTEMA
+============================================================
+[Descreva brevemente o sistema efetivamente implementado.]
+============================================================
+2. DECISOES DE PROJETO
+============================================================
+Q1: [resposta]
+Q2: [resposta]
+Q3: [resposta]
+Q4: [resposta]
+Q5: [resposta]
+Q6: [resposta]
+Cada resposta Q1-Q6 deverá ocupar uma única linha.
+============================================================
+3. DDL COMPLETO
+============================================================
+
+CREATE TYPE proposito AS ENUM ('Audio', 'Microfone', 'Computador', 'Projetor','Quadro','Mesa','Ventilacao');
+CREATE TYPE tp AS ENUM ('Individuo', 'Empresa', 'Universidade', 'Associacao');
+
+CREATE TABLE Evento(
+    id_evento integer PRIMARY KEY,
+    nome varchar(50) NOT NULL,
+    edicao bigint  NOT NULL,
+    data_inicio date NOT NULL,
+    data_fim date NOT NULL,
+    CONSTRAINT uq_nome_edicao UNIQUE(nome,edicao),
+    CONSTRAINT ck_inicio_fim CHECK(data_inicio <= data_fim)
+);
+
+CREATE TABLE Atividade(
+    id_atividade integer PRIMARY KEY,
+    id_evento integer NOT NULL,
+    titulo varchar(50) NOT NULL,
+    descricao text,
+    CONSTRAINT fk_atv_evento FOREIGN KEY (id_evento)
+    REFERENCES evento(id_evento) ON DELETE CASCADE ON UPDATE RESTRICT,
+    CONSTRAINT uq_titulo_evento UNIQUE(titulo,id_evento)
+);
+
+CREATE TABLE Espaco(
+    id_espaco integer PRIMARY KEY,
+    nome varchar(50) NOT NULL,
+    capacidade smallint NOT NULL,
+    CONSTRAINT ck_cap CHECK(capacidade >0 OR capacidade IS NULL)-- se capacidade for nula, é ilimitada
+);
+
+CREATE TABLE Sessao(
+    n_sessao smallint NOT NULL,
+    id_atividade integer NOT NULL,
+    id_espaco integer NOT NULL,
+    horario_inicio timestamp NOT NULL,
+    horario_fim timestamp NOT NULL,
+    vagas smallint, -- se nulo, não tem limite
+    CONSTRAINT pk_sessao PRIMARY KEY (id_atividade,n_sessao),
+    CONSTRAINT ck_vagas CHECK (vagas > 0 OR vagas IS NULL), --se vagas for nulo, não tem limite
+    CONSTRAINT ck_horario CHECK(horario_inicio < horario_fim),
+    CONSTRAINT fk_sessao_espaco FOREIGN KEY (id_espaco) 
+    REFERENCES Espaco(id_espaco) ON DELETE CASCADE,
+
+    CONSTRAINT fk_sessao_atv FOREIGN KEY(id_atividade)
+    REFERENCES atividade(id_atividade) ON DELETE CASCADE ON UPDATE RESTRICT --sem garantia que nova atividade cabe nos
+    --mesmos horarios
+);
+
+
+CREATE TABLE Tipo_Recurso(
+    id_tipo integer PRIMARY KEY,
+    tipo proposito NOT NULL UNIQUE
+
+
+
+);
+CREATE TABLE Recurso(
+    id_recurso integer PRIMARY KEY,
+    id_tipo integer NOT NULL,
+    id_espaco integer NOT NULL,
+    nome varchar(50) NOT NULL,
+    marca varchar(50) NOT NULL,
+    preco numeric(9,2) NOT NULL,
+    dataCompra date NOT NULL,
+    validade integer, --anos,
+
+    CONSTRAINT fk_tipo_recurso FOREIGN KEY (id_tipo) 
+    REFERENCES Tipo_Recurso (id_tipo) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_rec_espaco FOREIGN KEY (id_espaco)
+    REFERENCES Espaco(id_espaco) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT ck_validade CHECK(validade > 0)
+);
+
+CREATE TABLE Pessoa(
+    CPF char (11) PRIMARY KEY,
+    nome varchar(50) NOT NULL,
+    email varchar(50) UNIQUE,
+    e_palestrante boolean NOT NULL DEFAULT FALSE,
+    e_organizador boolean NOT NULL DEFAULT FALSE,
+    e_participante boolean NOT NULL DEFAULT FALSE,
+    e_instrutor boolean NOT NULL DEFAULT FALSE,
+
+    CONSTRAINT ck_pelo_menos_um CHECK
+    (e_palestrante = TRUE OR e_instrutor = TRUE OR e_organizador = TRUE OR e_participante = TRUE )
+);
+
+CREATE TABLE Palestrante(
+    CPF char(11) PRIMARY KEY,
+    especialidade varchar(30),
+    biografia text DEFAULT NULL,
+    CONSTRAINT fk_pales FOREIGN KEY (CPF)
+    REFERENCES Pessoa(CPF) ON DELETE CASCADE ON UPDATE CASCADE
+
+);
+CREATE TABLE Participante(
+    CPF char(11) PRIMARY KEY,
+    CONSTRAINT fk_parti FOREIGN KEY (CPF)
+    REFERENCES Pessoa(CPF) ON DELETE CASCADE ON UPDATE CASCADE
+);
+CREATE TABLE Instrutor(
+    CPF char(11) PRIMARY KEY,
+    ajuda text DEFAULT 'geral',
+    CONSTRAINT fk_inst FOREIGN KEY (CPF)
+    REFERENCES Pessoa(CPF) ON DELETE CASCADE ON UPDATE CASCADE
+    
+
+);
+CREATE TABLE Organizador(
+    CPF char(11) PRIMARY KEY,
+    cargo varchar (30),
+    CONSTRAINT fk_org FOREIGN KEY (CPF)
+    REFERENCES Pessoa(CPF) ON DELETE CASCADE ON UPDATE CASCADE
+    
+
+);
+
+CREATE TABLE Organizacao(
+    CNPJ char(14) PRIMARY KEY,
+    nome varchar(50) NOT NULL,
+    org_tipo tp NOT NULL
+);
+
+CREATE TABLE Org_Evento(
+    CNPJ char(14) NOT NULL,
+    id_evento integer,
+    CONSTRAINT pk_org_evento PRIMARY KEY(CNPJ, id_evento),
+    CONSTRAINT fk_org_cnpj FOREIGN KEY(CNPJ)
+    REFERENCES Organizacao(CNPJ)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_evento_id FOREIGN KEY(id_evento)
+    REFERENCES Evento (id_evento)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Part_Evento(
+    id_evento integer NOT NULL,
+    CPF char(11) NOT NULL,
+    CONSTRAINT pk_part_evento PRIMARY KEY(id_evento,CPF),
+    CONSTRAINT fk_part_e FOREIGN KEY (CPF) 
+    REFERENCES Participante (CPF)ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_event FOREIGN KEY (id_evento) 
+    REFERENCES Evento (id_evento) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Part_Sessao(
+    CPF char (11) NOT NULL,
+    n_sessao smallint NOT NULL,
+    id_atividade integer NOT NULL,
+    CONSTRAINT pk_part_sessao PRIMARY KEY (CPF,n_sessao,id_atividade),
+    CONSTRAINT fk_part_ps FOREIGN KEY (CPF) 
+    REFERENCES Participante (CPF) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_sessao_ps FOREIGN KEY (n_sessao,id_atividade)
+    REFERENCES Sessao(n_sessao,id_atividade) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Lista_de_Espera(
+    CPF char (11) NOT NULL,
+    n_sessao smallint NOT NULL,
+    id_atividade integer NOT NULL,
+    dataInscricao timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_lista_espera PRIMARY KEY (CPF,n_sessao,id_atividade),
+    CONSTRAINT fk_part_le FOREIGN KEY (CPF) 
+    REFERENCES Participante (CPF) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_sessao_le FOREIGN KEY (n_sessao,id_atividade)
+    REFERENCES Sessao(n_sessao,id_atividade) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Inst_Sessao(
+    CPF char (11) NOT NULL,
+    n_sessao smallint NOT NULL,
+    id_atividade integer NOT NULL,
+    CONSTRAINT pk_inst_sessao PRIMARY KEY (CPF,n_sessao,id_atividade),
+    CONSTRAINT fk_part_is FOREIGN KEY (CPF) 
+    REFERENCES Instrutor (CPF) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_sessao_is FOREIGN KEY (n_sessao,id_atividade)
+    REFERENCES Sessao(n_sessao,id_atividade) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Ativ_Tipo_Recurso(
+    id_atividade integer NOT NULL,
+    id_tipo integer NOT NULL,
+    quantidade smallint NOT NULL DEFAULT 1,
+    CONSTRAINT ck_qtd CHECK (quantidade >0),
+    CONSTRAINT pk_ativ_tipo_recurso PRIMARY KEY(id_atividade,id_tipo),
+    CONSTRAINT fk_ativ_atr FOREIGN KEY(id_atividade)
+    REFERENCES Atividade (id_atividade) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_tipo_atr FOREIGN KEY (id_tipo) 
+    REFERENCES Tipo_Recurso (id_tipo) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE Pales_Ativ(
+    CPF char(11),
+    id_atividade integer,
+    CONSTRAINT pk_pales_ativ PRIMARY KEY (CPF,id_atividade),
+    CONSTRAINT fk_pales_pa FOREIGN KEY (CPF) 
+    REFERENCES Palestrante (CPF) ON DELETE CASCADE ON UPDATE RESTRICT,
+    CONSTRAINT fk_ativ_pa FOREIGN KEY (id_atividade)
+    REFERENCES Atividade (id_atividade) ON DELETE CASCADE ON UPDATE RESTRICT
+
+);
+
+CREATE TABLE Organizador_Organizacao(
+    CPF char(11) NOT NULL,
+    CNPJ char(14) NOT NULL,
+    CONSTRAINT pk_organizador_organizacao PRIMARY KEY(CPF, CNPJ),
+    CONSTRAINT fk_organizador_oo FOREIGN KEY (CPF) REFERENCES Organizador(CPF) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_organizacao_oo FOREIGN KEY (CNPJ) REFERENCES Organizacao(CNPJ) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+--1: trigger para insercao de sessao
+CREATE OR REPLACE FUNCTION validar_sessao()
+RETURNS TRIGGER AS $$
+DECLARE
+data_inicio_evento DATE;
+data_fim_evento DATE;
+capacidade_espaco smallint;
+BEGIN
+
+    SELECT e.data_inicio, e.data_fim INTO data_inicio_evento, data_fim_evento
+    FROM Atividade a JOIN Evento e ON a.id_evento = e.id_evento
+    WHERE a.id_atividade = NEW.id_atividade;
+    
+    SELECT capacidade INTO capacidade_espaco FROM Espaco
+    WHERE id_espaco = NEW.id_espaco;
+    
+   -- se as vagas de sessão forem maiores que a capacidade do espaço
+    IF NEW.vagas IS NOT NULL AND capacidade_espaco < NEW.vagas THEN
+        RAISE EXCEPTION 'Erro: A quantidade de vagas da sessão (%) ultrapassa a capacidade máxima do espaço selecionado (%).',
+        NEW.vagas, capacidade_espaco;
+    END IF;
+    
+-- se a sessão está dentro da data do evento
+    IF (NEW.horario_inicio::DATE) < data_inicio_evento OR (NEW.horario_inicio::DATE) > data_fim_evento 
+        OR (NEW.horario_fim::DATE) > data_fim_evento 
+        THEN RAISE EXCEPTION 'Erro: programacao de sessão (% ate %) ocorre fora do período do evento (% ate %)',
+        NEW.horario_inicio::DATE,NEW.horario_fim::DATE,data_inicio_evento,data_fim_evento;
+    END IF;
+
+--espaço ocupado se o espaço já tiver outra sessão no mesmo horário bloqueia
+    IF EXISTS( SELECT 1 FROM Sessao WHERE id_espaco=NEW.id_espaco 
+        AND NOT (TG_OP = 'UPDATE' AND n_sessao = OLD.n_sessao AND id_atividade = OLD.id_atividade)
+        AND (NEW.horario_inicio, NEW.horario_fim ) OVERLAPS (horario_inicio,horario_fim)
+        )
+        THEN RAISE EXCEPTION 'Erro: outra sessao ja esta com o horario agendado';
+    END IF;
+-- espaço tem todos os recurss necessarios
+    
+    IF EXISTS(
+        --pega todos os tipos e quantidades deles associados ao espaço que a sessão será inserida
+        WITH esp_rec AS(SELECT id_tipo, COUNT(*) AS qtd_rec FROM Recurso
+        WHERE id_espaco = NEW.id_espaco GROUP BY id_tipo)
+        
+        --se qualquer id_tipo de recurso no espaço tiver uma quantidade menor que o necessário
+        SELECT 1 FROM Atividade atv LEFT JOIN Ativ_Tipo_Recurso atr on atv.id_atividade = atr.id_atividade
+        LEFT JOIN esp_rec er ON atr.id_tipo = er.id_tipo
+        WHERE atv.id_atividade=NEW.id_atividade AND COALESCE(er.qtd_rec,0) < atr.quantidade
+        ) THEN RAISE EXCEPTION 'Erro: O espaço não possui recursos o suficiente';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER check_sessao_valida
+BEFORE INSERT OR UPDATE ON Sessao
+FOR EACH ROW
+EXECUTE FUNCTION validar_sessao();
+
+
+--2: trigger pra inscricao de participante
+CREATE OR REPLACE FUNCTION inscrever_participante()
+RETURNS TRIGGER AS $$
+DECLARE
+vagas_sessao smallint;
+qtd_inscritos smallint;
+id_atv integer;
+BEGIN
+
+    --checa se tem espaço na sessão
+    SELECT id_atividade,vagas INTO id_atv,vagas_sessao
+    FROM Sessao WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+    --se sessão ilimitada, não é pra aparecer em participante_sessão
+    IF vagas_sessao IS NULL THEN
+        RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
+    END IF;
+    
+    --Participante deve estar inscrito no evento da atividade
+    IF NOT EXISTS (
+        SELECT 1 FROM Part_Evento PE
+        JOIN Atividade A on A.id_atividade = NEW.id_atividade
+         WHERE CPF = NEW.CPF 
+           AND PE.id_evento = A.id_evento
+    ) THEN
+        RAISE EXCEPTION 'Erro: Participante não está inscrito no evento da atividade.';
+    END IF;
+
+    --Participante não pode ser instrutor da mesma sessão
+    IF EXISTS (
+        SELECT 1 FROM Inst_Sessao 
+         WHERE CPF = NEW.CPF 
+           AND n_sessao = NEW.n_sessao 
+           AND id_atividade = NEW.id_atividade
+    ) THEN
+        RAISE EXCEPTION 'Erro: Um instrutor não pode inscrever-se como participante na mesma sessão em que ajuda.';
+    END IF;
+    
+    -- Participante não pode ser palestrante da mesma atividade
+    IF EXISTS (
+        SELECT 1 FROM Pales_Ativ 
+         WHERE CPF = NEW.CPF 
+           AND id_atividade = id_atv
+    ) THEN
+        RAISE EXCEPTION 'Erro: Um palestrante não pode inscrever-se como participante numa sessão de uma atividade que ele próprio apresenta.';
+    END IF;
+    
+    SELECT COUNT(*) INTO qtd_inscritos FROM Part_Sessao
+    WHERE n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade;
+    --se checa se sessão esta cheia ou nao
+    IF qtd_inscritos >= vagas_sessao THEN
+        INSERT INTO Lista_de_Espera (CPF,n_sessao,id_atividade) VALUES (NEW.CPF,NEW.n_sessao,NEW.id_atividade);
+        RAISE NOTICE 'Limite de vagas da sessão já atingido, participante colocado na lista de espera';
+        RETURN NULL;
+    END IF;
+    RETURN NEW;
+END;
+
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE TRIGGER inscricao_participante_sessao
+BEFORE INSERT ON Part_Sessao FOR EACH ROW
+EXECUTE FUNCTION inscrever_participante();
+
+--3: se algum participante deixa de ser inscrito em uma sessão cheia, inscreve o próximo da lista de espera
+CREATE OR REPLACE FUNCTION inscrever_da_espera()
+RETURNS TRIGGER AS $$
+DECLARE
+proximo char(11);
+BEGIN
+-- se tiver um participante inscrito na lista de espera da seção, pega o mínimo
+    
+    SELECT CPF INTO proximo FROM Lista_de_Espera
+    WHERE n_sessao = OLD.n_sessao AND id_atividade=OLD.id_atividade
+    ORDER BY dataInscricao ASC, CPF ASC LIMIT 1;
+    
+    
+    IF proximo IS NOT NULL THEN
+        INSERT INTO Part_Sessao VALUES (proximo,OLD.n_sessao,OLD.id_atividade);
+        
+        DELETE  FROM Lista_de_Espera WHERE CPF = proximo
+        AND n_sessao = OLD.n_sessao AND id_atividade=OLD.id_atividade;
+        
+        RAISE NOTICE 'Participante na fila de espera inscrito sessao';
+    END IF;
+    
+    RETURN OLD;
+
+END;
+$$ LANGUAGE plpgsql;
+CREATE OR REPLACE TRIGGER inscricao_participante_espera
+AFTER DELETE ON Part_Sessao FOR EACH ROW
+EXECUTE FUNCTION inscrever_da_espera();
+
+--4: valida instrutor
+CREATE OR REPLACE FUNCTION validar_instrutor_sessao()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS(SELECT 1 FROM Part_Sessao 
+        WHERE CPF = NEW.CPF AND n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Esta pessoa já está inscrita como participante nesta sessão e não pode ser instrutor.';
+    END IF; 
+
+    IF EXISTS (SELECT 1 FROM Pales_Ativ 
+        WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        )THEN RAISE EXCEPTION 'Erro: Esta pessoa já está inscrita como palestrante nesta sessão e não pode ser instrutor.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER check_instrutor_sessao
+BEFORE INSERT OR UPDATE ON Inst_Sessao
+FOR EACH ROW
+EXECUTE FUNCTION validar_instrutor_sessao();
+
+--5: valida palestrante
+CREATE OR REPLACE FUNCTION validar_palestrante_atividade()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validação: Palestrante não pode ter inscrições ativas como participante em sessões desta atividade
+    IF EXISTS (
+        SELECT 1 FROM Part_Sessao
+            WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Este palestrante já possui inscrição como participante em sessões desta atividade.';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM Inst_Sessao
+            WHERE CPF = NEW.CPF AND id_atividade = NEW.id_atividade
+        ) THEN RAISE EXCEPTION 'Erro: Este palestrante já possui inscrição como instrutor em sessões desta atividade.';
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER check_palestrante_atividade
+BEFORE INSERT OR UPDATE ON Pales_Ativ
+FOR EACH ROW
+EXECUTE FUNCTION validar_palestrante_atividade();
+
+--6: valida organização
+
+CREATE OR REPLACE FUNCTION validar_organizacao_organizador()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Validação: Organização individual não pode ter mais de um organizador
+    IF EXISTS (
+        SELECT 1 FROM Organizacao
+            WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individuo'
+        ) AND EXISTS (
+            SELECT 1 FROM Organizador_Organizacao
+            WHERE CNPJ = NEW.CNPJ
+        ) THEN RAISE EXCEPTION 'Erro: Esta organização individual já possui um organizador.';
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER check_organizacao_organizador
+BEFORE INSERT OR UPDATE ON Organizador_Organizacao
+FOR EACH ROW
+EXECUTE FUNCTION validar_organizacao_organizador();
+============================================================
+4. CONSULTAS
+============================================================
+CONSULTA 1
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 2
+OBJETIVO: [uma frase]
+SQL: [consulta]
+[...]
+============================================================
+FIM DO ARQUIVO
+============================================================
