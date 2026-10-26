@@ -1,6 +1,7 @@
 ============================================================
 SCC0640 - PROJETO DE BASES DE DADOS
 ============================================================
+<<<<<<< HEAD
 GRUPO: ABFMR
 INTEGRANTES: Alexandre Coura Serravite, Bruno Baremaker Moraes, Felipe Freitas Maia, Matheus Watanabe, Rafael Olandoski de Oliveira
 MODELO UTILIZADO NO OLLAMA: qwen3:8b
@@ -17,6 +18,25 @@ Q3: A Atividade guarda titulo e descricao e pertence a um evento; cada Sessao (i
 Q4: Todos os eventos sao independentes: nao ha entidade de iniciativa recorrente, e a edicao e apenas um atributo do evento (o par nome + edicao e unico), sem compartilhamento de informacoes entre edicoes.
 Q5: O limite de vagas e definido na sessao (vagas nulas indicam sessao sem limite e sem inscricao especifica); um trigger impede vagas maiores que a capacidade do espaco, e quando a sessao lota o participante inscrito no evento entra automaticamente na lista de espera, sendo promovido por ordem de chegada quando uma vaga e liberada.
 Q6: Nao ha historico de alteracoes: apenas a programacao atual da sessao e armazenada, e cada alteracao de espaco ou horario e revalidada pelo trigger de sessao (conflito de espaco, periodo do evento, capacidade e recursos).
+=======
+GRUPO:
+INTEGRANTES:
+MODELO UTILIZADO NO OLLAMA:
+============================================================
+1. DESCRICAO FINAL DO SISTEMA
+============================================================
+[Descreva brevemente o sistema efetivamente implementado.]
+============================================================
+2. DECISOES DE PROJETO
+============================================================
+Q1: [resposta]
+Q2: [resposta]
+Q3: [resposta]
+Q4: [resposta]
+Q5: [resposta]
+Q6: [resposta]
+Cada resposta Q1-Q6 deverá ocupar uma única linha.
+>>>>>>> 22f188348d5846b8a41abc2b21e7b5fac4f9ea20
 ============================================================
 3. DDL COMPLETO
 ============================================================
@@ -229,6 +249,10 @@ CREATE TABLE Organizador_Organizacao(
     CONSTRAINT fk_organizador_oo FOREIGN KEY (CPF) REFERENCES Organizador(CPF) ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT fk_organizacao_oo FOREIGN KEY (CNPJ) REFERENCES Organizacao(CNPJ) ON UPDATE CASCADE ON DELETE CASCADE
 );
+<<<<<<< HEAD
+=======
+
+>>>>>>> 22f188348d5846b8a41abc2b21e7b5fac4f9ea20
 --1: trigger para insercao de sessao
 CREATE OR REPLACE FUNCTION validar_sessao()
 RETURNS TRIGGER AS $$
@@ -458,6 +482,7 @@ EXECUTE FUNCTION validar_organizacao_organizador();
 4. CONSULTAS
 ============================================================
 CONSULTA 1
+<<<<<<< HEAD
 OBJETIVO: Listar o cronograma (atividades, sessoes, horarios, vagas e espacos) da Semana da Engenharia de Computacao 2026, ordenado por horario.
 SQL:
 -- selecionar cronograma do evento x
@@ -570,6 +595,14 @@ GROUP BY A.id_atividade, A.titulo,
          E.id_evento, E.nome, E.edicao
 HAVING COUNT(S.n_sessao) > 1
 ORDER BY quantidade_sessoes DESC;
+=======
+OBJETIVO: [uma frase]
+SQL: [consulta]
+CONSULTA 2
+OBJETIVO: [uma frase]
+SQL: [consulta]
+[...]
+>>>>>>> 22f188348d5846b8a41abc2b21e7b5fac4f9ea20
 ============================================================
 FIM DO ARQUIVO
 ============================================================
