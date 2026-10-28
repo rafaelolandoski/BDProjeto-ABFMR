@@ -1,695 +1,489 @@
 """
-SCC0540/SCC0640 - Bases de Dados
-Projeto de Curso - Sistema de Gestão de Eventos e Espaços
+main.py - Protótipo do Projeto de Bases de Dados (SCC0540/SCC0640)
+Sistema de Gestão de Eventos e Espaços
 
-Protótipo em linha de comando que:
-  1. Lê os parâmetros de conexão (config.json) e permite ajustá-los;
-  2. Conecta ao PostgreSQL;
-  3. Executa as consultas definidas em Projeto.txt (quantidade variável);
-  4. Apresenta os resultados em formato tabular;
-  5. Recebe perguntas em linguagem natural;
-  6. Converte a pergunta em SQL via Ollama (modelo local);
-  7. Executa o SQL gerado;
-  8. Exibe o resultado ou a mensagem de erro.
+O que este programa faz:
+  1. Lê o config.json (parâmetros do PostgreSQL e do Ollama);
+  2. Conecta no banco PostgreSQL;
+  3. Oferece um menu para executar as consultas definidas no projeto;
+  4. Permite fazer uma pergunta em linguagem natural: o Ollama converte a
+     pergunta em SQL, o programa executa o SQL e mostra o resultado.
 
-Execução:
-    python main.py
+Execução:  python main.py
 """
 
-from __future__ import annotations
+# ---------------------------------------------------------------------------
+# IMPORTS
+# ---------------------------------------------------------------------------
+import json                 # ler o config.json
+import re                   # expressões regulares (limpar a resposta do modelo)
+from pathlib import Path    # manipular caminhos de forma portável (Windows/Linux/Mac)
 
-import importlib
-import json
-import re
-import subprocess
-import sys
-from dataclasses import dataclass
-from getpass import getpass
-from pathlib import Path
-from typing import Any
+import psycopg              # driver do PostgreSQL (versão 3)
+from ollama import Client   # cliente para conversar com o Ollama
 
+
+# ---------------------------------------------------------------------------
+# 1) CONFIGURAÇÃO  (trecho obrigatório do PDF)
+# ---------------------------------------------------------------------------
+# __file__ é o caminho deste main.py. .resolve() transforma em caminho absoluto
+# e .parent pega a pasta onde o arquivo está. Assim o programa funciona em
+# qualquer computador, sem escrever caminhos como C:\Users\aluno\...
 BASE_DIR = Path(__file__).resolve().parent
 
-REQUIREMENTS_FILE_NAME = "requirements.txt"
-REQUIRED_MODULES = ("ollama", "psycopg")
-
-
-def ensure_dependencies() -> None:
-    """
-    Garante que as bibliotecas de terceiros estejam instaladas.
-
-    Se alguma estiver ausente, executa automaticamente:
-        python -m pip install -r requirements.txt
-    usando o mesmo interpretador que está rodando este programa.
-    """
-
-    def missing_modules() -> list[str]:
-        missing = []
-        for module_name in REQUIRED_MODULES:
-            try:
-                importlib.import_module(module_name)
-            except ImportError:
-                missing.append(module_name)
-        return missing
-
-    missing = missing_modules()
-    if not missing:
-        return
-
-    requirements_path = BASE_DIR / REQUIREMENTS_FILE_NAME
-    command = [sys.executable, "-m", "pip", "install", "-r", str(requirements_path)]
-    manual_command = "python -m pip install -r requirements.txt"
-
-    print(f"[INFO] Dependências ausentes: {', '.join(missing)}.")
-    if not requirements_path.exists():
-        print(f"[ERRO] {REQUIREMENTS_FILE_NAME} não encontrado em {BASE_DIR}.")
-        raise SystemExit(1)
-
-    print(f"[INFO] Instalando a partir de {REQUIREMENTS_FILE_NAME}...")
-    try:
-        result = subprocess.run(command, check=False)
-    except OSError as exc:
-        print(f"[ERRO] Não foi possível executar o pip: {exc}")
-        print(f"Instale manualmente com: {manual_command}")
-        raise SystemExit(1)
-
-    importlib.invalidate_caches()
-    if result.returncode != 0 or missing_modules():
-        print("[ERRO] A instalação automática das dependências falhou.")
-        print(f"Instale manualmente com: {manual_command}")
-        raise SystemExit(1)
-
-    print("[INFO] Dependências instaladas com sucesso.\n")
-
-
-ensure_dependencies()
-
-import psycopg  # noqa: E402  (importado após garantir a instalação)
-from ollama import Client  # noqa: E402
-
-# ---------------------------------------------------------------------------
-# Constantes
-# ---------------------------------------------------------------------------
-
-CONFIG_FILE_NAME = "config.json"
-PROJECT_FILE_NAME = "Projeto.txt"
-
-# Marcadores das seções do Projeto.txt (conforme template obrigatório)
-DDL_SECTION_START = "3. DDL COMPLETO"
-DDL_SECTION_END = "4. CONSULTAS"
-QUERIES_SECTION_START = "4. CONSULTAS"
-QUERIES_SECTION_END = "FIM DO ARQUIVO"
-
-# Apresentação dos resultados
-MAX_DISPLAY_ROWS = 50
-MAX_CELL_WIDTH = 40
-NULL_REPRESENTATION = "NULL"
-TRUNCATION_SUFFIX = "…"
-BANNER_WIDTH = 70
-
-# Execução de SQL
-STATEMENT_TIMEOUT_MS = 30_000
-
-# Quantas vezes o modelo pode tentar corrigir um SQL que falhou (0 = desativado)
-MAX_SQL_CORRECTION_ATTEMPTS = 1
-
-# Opções de menu
-MENU_RUN_PREDEFINED = "1"
-MENU_ASK_NATURAL_LANGUAGE = "2"
-MENU_CHANGE_CONNECTION = "3"
-MENU_EXIT = "0"
-
-# Opções do submenu de consultas
-QUERY_MENU_RUN_ALL = "t"
-QUERY_MENU_BACK = "0"
-
-# Comandos aceitos no modo de linguagem natural
-NL_EXIT_COMMANDS = {"", "0", "sair", "voltar", "exit", "quit"}
-
-# Parâmetros de conexão que o usuário pode editar: (chave, rótulo, é_senha)
-CONNECTION_FIELDS: tuple[tuple[str, str, bool], ...] = (
-    ("host", "Host", False),
-    ("port", "Porta", False),
-    ("dbname", "Banco", False),
-    ("user", "Usuário", False),
-    ("password", "Senha", True),
-)
-
-# Expressões regulares
-RE_SEPARATOR_LINE = re.compile(r"^\s*=+\s*$", re.MULTILINE)
-RE_QUERY_BLOCK = re.compile(
-    r"^CONSULTA\s+(\d+)\s*$(.*?)(?=^CONSULTA\s+\d+\s*$|\Z)",
-    re.MULTILINE | re.DOTALL,
-)
-RE_QUERY_OBJECTIVE = re.compile(
-    r"OBJETIVO:\s*(.*?)\s*^SQL:", re.MULTILINE | re.DOTALL
-)
-RE_QUERY_SQL = re.compile(r"^SQL:\s*(.*)\Z", re.MULTILINE | re.DOTALL)
-RE_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
-RE_CODE_FENCE = re.compile(r"```(?:sql|postgresql|pgsql)?\s*(.*?)```",
-                           re.DOTALL | re.IGNORECASE)
-RE_SQL_START = re.compile(r"\b(SELECT|WITH)\b", re.IGNORECASE)
-
-SQL_ALLOWED_PREFIXES = ("select", "with")
-
-LLM_PROMPT_TEMPLATE = """\
-Você é um especialista em PostgreSQL. Converta a pergunta do usuário em UMA \
-única consulta SQL, usando exclusivamente as tabelas e colunas do esquema \
-abaixo.
-
-ESQUEMA (DDL):
-{ddl}
-
-REGRAS:
-- Responda somente com o código SQL, sem explicações e sem comentários.
-- Gere apenas uma instrução SELECT (ou WITH ... SELECT) compatível com PostgreSQL.
-- Nunca gere INSERT, UPDATE, DELETE, DROP, ALTER, CREATE ou TRUNCATE.
-- Não invente tabelas nem colunas que não existam no esquema.
-- Use JOINs explícitos quando precisar combinar tabelas.
-{correction_block}
-PERGUNTA: {question}
-"""
-
-LLM_CORRECTION_BLOCK_TEMPLATE = """
-A tentativa anterior estava incorreta e precisa ser corrigida.
-SQL anterior:
-{previous_sql}
-Erro retornado pelo PostgreSQL:
-{error}
-"""
+# Abre o config.json (que está na mesma pasta do main.py) e transforma o texto
+# JSON em um dicionário Python: config["database"]["host"], etc.
+with open(BASE_DIR / "config.json", encoding="utf-8") as f:
+    config = json.load(f)
 
 
 # ---------------------------------------------------------------------------
-# Modelos de dados
+# 2) AS CONSULTAS DO PROJETO
 # ---------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class PredefinedQuery:
-    """Consulta predefinida lida do Projeto.txt."""
-
-    number: int
-    objective: str
-    sql: str
-
-
-@dataclass(frozen=True)
-class QueryResult:
-    """Resultado de uma execução de SQL."""
-
-    columns: list[str]
-    rows: list[tuple[Any, ...]]
-    truncated: bool
-
-
-# ---------------------------------------------------------------------------
-# Utilitários de interface
-# ---------------------------------------------------------------------------
-
-def print_banner(title: str) -> None:
-    line = "=" * BANNER_WIDTH
-    print(f"\n{line}\n{title}\n{line}")
-
-
-def print_error(message: str) -> None:
-    print(f"[ERRO] {message}")
-
-
-def print_info(message: str) -> None:
-    print(f"[INFO] {message}")
-
-
-def read_input(prompt: str) -> str:
-    """Lê uma linha do terminal; trata EOF (Ctrl+D / Ctrl+Z) como saída."""
-    try:
-        return input(prompt).strip()
-    except EOFError:
-        print()
-        raise SystemExit(0)
-
-
-def format_cell(value: Any) -> str:
-    """Converte um valor em texto de célula (uma linha, largura limitada)."""
-    text = NULL_REPRESENTATION if value is None else str(value)
-    text = " ".join(text.split())
-    if len(text) > MAX_CELL_WIDTH:
-        text = text[: MAX_CELL_WIDTH - len(TRUNCATION_SUFFIX)] + TRUNCATION_SUFFIX
-    return text
-
-
-def render_table(columns: list[str], rows: list[tuple[Any, ...]]) -> str:
-    """Renderiza colunas e linhas como uma tabela em texto."""
-    header = [format_cell(column) for column in columns]
-    body = [[format_cell(value) for value in row] for row in rows]
-
-    widths = [len(title) for title in header]
-    for row in body:
-        for index, cell in enumerate(row):
-            widths[index] = max(widths[index], len(cell))
-
-    def build_row(cells: list[str]) -> str:
-        return "| " + " | ".join(c.ljust(w) for c, w in zip(cells, widths)) + " |"
-
-    separator = "+-" + "-+-".join("-" * width for width in widths) + "-+"
-    lines = [separator, build_row(header), separator]
-    lines.extend(build_row(row) for row in body)
-    lines.append(separator)
-    return "\n".join(lines)
-
-
-def print_result(result: QueryResult) -> None:
-    """Exibe o resultado de uma consulta."""
-    if not result.columns:
-        print_info("A instrução foi executada, mas não retornou linhas.")
-        return
-
-    print(render_table(result.columns, result.rows))
-    count = len(result.rows)
-    if result.truncated:
-        print(f"({count} linhas exibidas; resultado limitado a {MAX_DISPLAY_ROWS})")
-    else:
-        print(f"({count} {'linha' if count == 1 else 'linhas'})")
-
-
-# ---------------------------------------------------------------------------
-# Configuração e leitura do Projeto.txt
-# ---------------------------------------------------------------------------
-
-def load_config() -> dict[str, Any]:
-    """Carrega o config.json localizado ao lado do main.py."""
-    config_path = BASE_DIR / CONFIG_FILE_NAME
-    if not config_path.exists():
-        print_error(f"{CONFIG_FILE_NAME} não encontrado em {BASE_DIR}.")
-        raise SystemExit(1)
-
-    try:
-        with open(config_path, encoding="utf-8") as f:
-            config = json.load(f)
-        _ = config["database"], config["ollama"]["host"], config["ollama"]["model"]
-    except (json.JSONDecodeError, KeyError) as exc:
-        print_error(f"{CONFIG_FILE_NAME} inválido ou incompleto: {exc!r}")
-        raise SystemExit(1)
-    return config
-
-
-def load_project_file() -> str:
-    """Lê o Projeto.txt localizado na raiz do projeto (pasta pai de Prototipo)."""
-    projeto_path = BASE_DIR.parent / PROJECT_FILE_NAME
-    if not projeto_path.exists():
-        print("Erro: Projeto.txt não encontrado.")
-        raise SystemExit(1)
-    return projeto_path.read_text(encoding="utf-8")
-
-
-def strip_separator_lines(text: str) -> str:
-    """Remove linhas compostas apenas por '=' (decoração do template)."""
-    return RE_SEPARATOR_LINE.sub("", text).strip()
-
-
-def extract_ddl(projeto: str) -> str:
-    """Extrai a seção '3. DDL COMPLETO' do Projeto.txt."""
-    try:
-        ddl = projeto.split(DDL_SECTION_START, 1)[1]
-        ddl = ddl.split(DDL_SECTION_END, 1)[0]
-    except IndexError:
-        print_error(
-            f"Seções '{DDL_SECTION_START}' / '{DDL_SECTION_END}' não encontradas "
-            f"em {PROJECT_FILE_NAME}."
-        )
-        raise SystemExit(1)
-
-    ddl = strip_separator_lines(ddl)
-    if not ddl:
-        print_error("A seção de DDL do Projeto.txt está vazia.")
-        raise SystemExit(1)
-    return ddl
-
-
-def extract_queries(projeto: str) -> list[PredefinedQuery]:
-    """
-    Extrai todas as consultas da seção '4. CONSULTAS'.
-
-    Aceita qualquer quantidade de blocos 'CONSULTA N' com os campos
-    'OBJETIVO:' e 'SQL:'. Blocos malformados são ignorados com aviso.
-    """
-    try:
-        section = projeto.split(QUERIES_SECTION_START, 1)[1]
-    except IndexError:
-        print_error(f"Seção '{QUERIES_SECTION_START}' não encontrada.")
-        raise SystemExit(1)
-    section = section.split(QUERIES_SECTION_END, 1)[0]
-    section = RE_SEPARATOR_LINE.sub("", section)
-
-    queries: list[PredefinedQuery] = []
-    for match in RE_QUERY_BLOCK.finditer(section):
-        number = int(match.group(1))
-        block = match.group(2)
-
-        objective_match = RE_QUERY_OBJECTIVE.search(block)
-        sql_match = RE_QUERY_SQL.search(block)
-        if not objective_match or not sql_match or not sql_match.group(1).strip():
-            print_info(f"CONSULTA {number} ignorada: formato OBJETIVO/SQL inválido.")
-            continue
-
-        queries.append(
-            PredefinedQuery(
-                number=number,
-                objective=" ".join(objective_match.group(1).split()),
-                sql=sql_match.group(1).strip(),
+# Cada consulta é um dicionário com:
+#   titulo     -> texto mostrado no menu
+#   sql        -> a consulta. Os valores que mudam usam %s (marcador de
+#                 parâmetro). NUNCA concatene texto digitado pelo usuário
+#                 dentro do SQL: o psycopg substitui os %s com segurança.
+#   parametros -> lista de (pergunta ao usuário, valor padrão, tipo).
+#                 Se o usuário apertar ENTER, usa-se o valor padrão.
+#                 A ordem da lista deve ser a mesma dos %s no SQL.
+CONSULTAS = [
+    {
+        "titulo": "Cronograma de um evento",
+        "sql": """
+            SELECT  ev.nome AS evento,
+                    ev.edicao,
+                    a.titulo AS atividade,
+                    s.n_sessao,
+                    s.horario_inicio,
+                    s.horario_fim,
+                    s.vagas,
+                    e.nome AS espaco
+            FROM Evento ev
+            JOIN Atividade a ON a.id_evento = ev.id_evento
+            LEFT JOIN Sessao s ON a.id_atividade = s.id_atividade
+            LEFT JOIN Espaco e ON s.id_espaco = e.id_espaco
+            WHERE ev.nome = %s AND ev.edicao = %s
+            ORDER BY s.horario_inicio ASC NULLS LAST, a.titulo ASC
+        """,
+        "parametros": [
+            ("Nome do evento", "Semana da Engenharia de Computação", str),
+            ("Edição", "2026", int),
+        ],
+    },
+    {
+        "titulo": "Participantes de uma atividade",
+        "sql": """
+            SELECT  E.nome AS evento,
+                    E.edicao,
+                    A.titulo,
+                    S.n_sessao,
+                    P.nome AS inscritos,
+                    P.CPF,
+                    count(PS.CPF) OVER (
+                        PARTITION BY S.n_sessao, S.id_atividade
+                    ) AS participantes,
+                    S.vagas,
+                    S.vagas - count(PS.CPF) OVER (
+                        PARTITION BY S.n_sessao, S.id_atividade
+                    ) AS vagas_remanescentes,
+                    S.id_atividade
+            FROM Sessao S
+            JOIN Part_Sessao PS ON S.n_sessao = PS.n_sessao
+                               AND S.id_atividade = PS.id_atividade
+            JOIN Pessoa P ON PS.CPF = P.CPF
+            JOIN Atividade A ON S.id_atividade = A.id_atividade
+            JOIN Evento E ON A.id_evento = E.id_evento
+            WHERE E.nome = %s AND E.edicao = %s AND A.titulo = %s
+        """,
+        "parametros": [
+            ("Nome do evento", "Semana de Tecnologia", str),
+            ("Edição", "5", int),
+            ("Título da atividade", "Minicurso de Python", str),
+        ],
+    },
+    {
+        "titulo": "Espaços livres em um intervalo de horário",
+        "sql": """
+            SELECT  e.id_espaco,
+                    e.nome AS nome_espaco,
+                    e.capacidade
+            FROM Espaco e
+            WHERE NOT EXISTS (
+                SELECT 1 FROM Sessao s
+                WHERE s.id_espaco = e.id_espaco
+                  AND (s.horario_inicio, s.horario_fim)
+                      OVERLAPS (%s::timestamp, %s::timestamp)
             )
+            ORDER BY e.nome ASC
+        """,
+        "parametros": [
+            ("Início (AAAA-MM-DD HH:MM:SS)", "2026-10-20 08:00:00", str),
+            ("Fim    (AAAA-MM-DD HH:MM:SS)", "2026-10-20 12:00:00", str),
+        ],
+    },
+    {
+        "titulo": "Participantes em lista de espera",
+        "sql": """
+            SELECT  E.nome AS evento,
+                    E.edicao,
+                    A.titulo AS titulo_atividade,
+                    S.n_sessao,
+                    P.nome AS inscritos_lista,
+                    P.CPF,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY S.id_atividade, S.n_sessao
+                        ORDER BY L.dataInscricao
+                    ) AS posicao_lista,
+                    S.vagas,
+                    L.dataInscricao,
+                    S.id_atividade
+            FROM Sessao S
+            JOIN Lista_de_Espera L ON S.n_sessao = L.n_sessao
+                                  AND S.id_atividade = L.id_atividade
+            JOIN Pessoa P ON L.CPF = P.CPF
+            JOIN Atividade A ON S.id_atividade = A.id_atividade
+            JOIN Evento E ON A.id_evento = E.id_evento
+        """,
+        "parametros": [],   # esta consulta não precisa de parâmetros
+    },
+    {
+        "titulo": "Quantidade de participantes inscritos por evento",
+        "sql": """
+            SELECT  E.nome AS evento,
+                    E.edicao,
+                    COUNT(PE.CPF) AS total_participantes
+            FROM Evento E
+            LEFT JOIN Part_Evento PE
+                   ON E.id_evento = PE.id_evento
+            GROUP BY E.id_evento, E.nome, E.edicao
+            ORDER BY total_participantes DESC
+        """,
+        "parametros": [],
+    },
+    {
+        "titulo": "Atividades que possuem mais de uma sessão",
+        "sql": """
+            SELECT  A.titulo AS atividade,
+                    E.nome AS evento,
+                    E.edicao,
+                    COUNT(S.n_sessao) AS quantidade_sessoes
+            FROM Atividade A
+            JOIN Evento E ON A.id_evento = E.id_evento
+            JOIN Sessao S ON A.id_atividade = S.id_atividade
+            GROUP BY A.id_atividade, A.titulo,
+                     E.id_evento, E.nome, E.edicao
+            HAVING COUNT(S.n_sessao) > 1
+            ORDER BY quantidade_sessoes DESC
+        """,
+        "parametros": [],
+    },
+    # Para adicionar MAIS consultas, copie um bloco acima e cole aqui:
+    # o menu se ajusta sozinho.
+]
+
+
+# ---------------------------------------------------------------------------
+# 3) CONEXÃO COM O POSTGRESQL  (trecho obrigatório do PDF)
+# ---------------------------------------------------------------------------
+def conectar_banco():
+    """Abre a conexão com o PostgreSQL usando os dados do config.json."""
+    db = config["database"]
+    try:
+        conn = psycopg.connect(
+            host=db["host"],
+            port=db["port"],
+            dbname=db["dbname"],
+            user=db["user"],
+            password=db["password"],
         )
-    return queries
+    except psycopg.Error as erro:
+        # Se o banco estiver desligado ou a senha estiver errada, mostramos
+        # uma mensagem clara em vez de uma tela cheia de erros do Python.
+        print(f"Erro ao conectar no PostgreSQL: {erro}")
+        raise SystemExit(1)
 
-
-# ---------------------------------------------------------------------------
-# PostgreSQL
-# ---------------------------------------------------------------------------
-
-def mask_password(password: str) -> str:
-    return "*" * len(password) if password else "(vazia)"
-
-
-def show_connection_params(params: dict[str, Any]) -> None:
-    print("Parâmetros de conexão com o PostgreSQL:")
-    for key, label, is_secret in CONNECTION_FIELDS:
-        value = mask_password(str(params[key])) if is_secret else params[key]
-        print(f"  {label:<8}: {value}")
-
-
-def prompt_connection_params(current: dict[str, Any]) -> dict[str, Any]:
-    """Pergunta cada parâmetro; Enter mantém o valor atual."""
-    updated = dict(current)
-    print("Pressione Enter para manter o valor atual.")
-    for key, label, is_secret in CONNECTION_FIELDS:
-        if is_secret:
-            typed = getpass(f"  {label} [{mask_password(str(current[key]))}]: ").strip()
-        else:
-            typed = read_input(f"  {label} [{current[key]}]: ")
-        if not typed:
-            continue
-        if key == "port":
-            if not typed.isdigit():
-                print_error("Porta inválida; valor anterior mantido.")
-                continue
-            updated[key] = int(typed)
-        else:
-            updated[key] = typed
-    return updated
-
-
-def connect_to_database(params: dict[str, Any]) -> psycopg.Connection:
-    """Abre a conexão (somente leitura) com o PostgreSQL."""
-    conn = psycopg.connect(
-        host=params["host"],
-        port=params["port"],
-        dbname=params["dbname"],
-        user=params["user"],
-        password=params["password"],
-    )
-    # O protótipo só consulta dados; isso protege contra SQL destrutivo do LLM.
+    # Medida de segurança: toda transação desta conexão é SOMENTE LEITURA.
+    # Assim, mesmo que o modelo de linguagem gere um DELETE/UPDATE/DROP, o
+    # PostgreSQL recusa. (O protótipo só precisa de SELECT.)
     conn.read_only = True
     return conn
 
 
-def establish_connection(initial_params: dict[str, Any]) -> tuple[psycopg.Connection, dict[str, Any]]:
-    """Fluxo interativo de conexão: mostra, permite editar e tenta conectar."""
-    params = dict(initial_params)
-    while True:
-        show_connection_params(params)
-        answer = read_input("Deseja alterar algum parâmetro? [s/N]: ").lower()
-        if answer in ("s", "sim", "y", "yes"):
-            params = prompt_connection_params(params)
-
-        try:
-            conn = connect_to_database(params)
-        except psycopg.Error as exc:
-            print_error(f"Falha ao conectar ao PostgreSQL: {str(exc).strip()}")
-            print("Revise os parâmetros e tente novamente.\n")
-            # Na próxima volta, força a edição dos parâmetros
-            params = prompt_connection_params(params)
-            continue
-
-        print_info(f"Conectado a '{params['dbname']}' em {params['host']}:{params['port']}.")
-        return conn, params
+# ---------------------------------------------------------------------------
+# 4) CONEXÃO COM O OLLAMA  (trecho obrigatório do PDF)
+# ---------------------------------------------------------------------------
+def criar_cliente_ollama():
+    """Cria o cliente que fala com o servidor do Ollama."""
+    ollama_config = config["ollama"]
+    return Client(host=ollama_config["host"])
 
 
-def execute_sql(conn: psycopg.Connection, sql: str) -> QueryResult:
+# ---------------------------------------------------------------------------
+# 5) LEITURA DO DDL DO Projeto.txt  (trecho obrigatório do PDF)
+# ---------------------------------------------------------------------------
+def carregar_ddl():
     """
-    Executa um SQL e devolve até MAX_DISPLAY_ROWS linhas.
+    Lê o Projeto.txt (na pasta acima de Prototipo/) e devolve só o trecho
+    entre os títulos "3. DDL COMPLETO" e "4. CONSULTAS". Esse texto é enviado
+    ao modelo para ele conhecer as tabelas e colunas do banco.
+    """
+    # BASE_DIR.parent = pasta acima de Prototipo/
+    projeto_path = BASE_DIR.parent / "Projeto.txt"
+    if not projeto_path.exists():
+        print("Erro: Projeto.txt não encontrado.")
+        raise SystemExit(1)
 
-    Sempre encerra a transação ao final (rollback) para que a conexão
-    permaneça utilizável mesmo após erros.
+    projeto = projeto_path.read_text(encoding="utf-8")
+    try:
+        # split(texto, 1) corta o conteúdo na PRIMEIRA ocorrência do título.
+        # [1] pega o que vem depois; [0] pega o que vem antes.
+        ddl = projeto.split("3. DDL COMPLETO", 1)[1]
+        ddl = ddl.split("4. CONSULTAS", 1)[0]
+        ddl = ddl.strip()
+    except IndexError:
+        # Acontece se um dos dois títulos não existir no arquivo.
+        print('Erro: não foi possível encontrar "3. DDL COMPLETO" e '
+              '"4. CONSULTAS" no Projeto.txt.')
+        raise SystemExit(1)
+    return ddl
+
+
+# ---------------------------------------------------------------------------
+# 6) EXECUTAR SQL E MOSTRAR O RESULTADO
+# ---------------------------------------------------------------------------
+def executar_sql(conn, sql, parametros=None):
+    """
+    Executa um SELECT e devolve (colunas, linhas).
+    Em caso de erro, devolve (None, mensagem_de_erro).
     """
     try:
+        # O cursor é o objeto que envia comandos ao banco e lê as respostas.
+        # O "with" garante que ele seja fechado ao final.
         with conn.cursor() as cur:
-            cur.execute(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
-            cur.execute(sql)  # type: ignore[arg-type]
-            if cur.description is None:
-                return QueryResult(columns=[], rows=[], truncated=False)
-
-            columns = [column.name for column in cur.description]
-            fetched = cur.fetchmany(MAX_DISPLAY_ROWS + 1)
-            truncated = len(fetched) > MAX_DISPLAY_ROWS
-            return QueryResult(
-                columns=columns,
-                rows=[tuple(row) for row in fetched[:MAX_DISPLAY_ROWS]],
-                truncated=truncated,
-            )
+            cur.execute(sql, parametros)          # %s são trocados por parametros
+            # cur.description descreve as colunas do resultado; .name é o
+            # nome de cada uma. Usamos isso como cabeçalho da tabela.
+            colunas = [col.name for col in cur.description]
+            linhas = cur.fetchall()               # lista de tuplas
+        return colunas, linhas
+    except psycopg.Error as erro:
+        return None, str(erro).strip()
     finally:
+        # Encerra a transação (mesmo em caso de erro). Sem isso, após um erro
+        # o PostgreSQL deixa a conexão "travada" até um rollback.
         conn.rollback()
 
 
-def run_and_print(conn: psycopg.Connection, sql: str) -> bool:
-    """Executa e imprime. Retorna True em caso de sucesso."""
-    try:
-        result = execute_sql(conn, sql)
-    except psycopg.Error as exc:
-        print_error(f"Erro ao executar a consulta: {str(exc).strip()}")
+def imprimir_tabela(colunas, linhas, max_largura=40):
+    """Imprime o resultado como uma tabela alinhada no terminal."""
+    def texto(valor):
+        # None vira "NULL"; textos longos são cortados com "..."
+        s = "NULL" if valor is None else str(valor)
+        return s if len(s) <= max_largura else s[: max_largura - 3] + "..."
+
+    cabecalho = [str(c) for c in colunas]
+    corpo = [[texto(v) for v in linha] for linha in linhas]
+
+    # Largura de cada coluna = maior texto entre o cabeçalho e as linhas.
+    larguras = [len(c) for c in cabecalho]
+    for linha in corpo:
+        for i, celula in enumerate(linha):
+            larguras[i] = max(larguras[i], len(celula))
+
+    def formatar(celulas):
+        # ljust preenche com espaços à direita até a largura da coluna
+        return " | ".join(c.ljust(larguras[i]) for i, c in enumerate(celulas))
+
+    print()
+    print(formatar(cabecalho))
+    print("-+-".join("-" * w for w in larguras))
+    for linha in corpo:
+        print(formatar(linha))
+    print(f"\n({len(corpo)} linha{'s' if len(corpo) != 1 else ''})")
+
+
+# ---------------------------------------------------------------------------
+# 7) CONSULTAS FIXAS DO PROJETO (itens 3 e 4 do protótipo)
+# ---------------------------------------------------------------------------
+def rodar_consulta(conn, consulta):
+    """Pede os parâmetros ao usuário, executa a consulta e mostra o resultado."""
+    if consulta["sql"] is None:
+        print("\nEsta consulta ainda não foi implementada.")
+        return
+
+    print(f"\n=== {consulta['titulo']} ===")
+
+    valores = []
+    for pergunta, padrao, tipo in consulta["parametros"]:
+        digitado = input(f"{pergunta} [{padrao}]: ").strip()
+        bruto = digitado if digitado else padrao   # ENTER = usa o padrão
+        try:
+            valores.append(tipo(bruto))            # converte para int, str...
+        except ValueError:
+            print(f"Valor inválido para '{pergunta}'.")
+            return
+
+    colunas, resultado = executar_sql(conn, consulta["sql"], valores)
+    if colunas is None:
+        print(f"\nErro ao executar a consulta: {resultado}")
+    else:
+        imprimir_tabela(colunas, resultado)
+
+
+# ---------------------------------------------------------------------------
+# 8) LINGUAGEM NATURAL -> SQL (itens 5 a 8 do protótipo)
+# ---------------------------------------------------------------------------
+def montar_mensagens(ddl, pergunta):
+    """
+    Monta a lista de mensagens enviada ao modelo, separando os papéis:
+      - "system": quem o modelo é, as regras e o esquema (DDL) do banco;
+      - "user":   a pergunta digitada pelo usuário.
+    Separar as regras da pergunta ajuda o modelo a segui-las melhor.
+    """
+    system = f"""Você é um assistente especializado em SQL PostgreSQL.
+
+Use exclusivamente o seguinte esquema (DDL) de um banco de gestão de eventos e espaços:
+
+{ddl}
+
+Regras:
+- Gere apenas consultas SQL compatíveis com PostgreSQL.
+- Não invente tabelas nem atributos: use somente os que existem no esquema.
+- Gere apenas comandos SELECT (ou WITH ... SELECT), nunca comandos que alterem dados.
+- Gere uma única consulta.
+- Retorne apenas o comando SQL, sem explicações e sem comentários.
+- Se a pergunta não puder ser respondida com esse esquema, diga que não é possível."""
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": pergunta},
+    ]
+
+
+def limpar_sql(resposta):
+    """
+    O modelo costuma devolver texto extra. Esta função remove:
+      - o bloco <think>...</think> (raciocínio do qwen3);
+      - as cercas de código ```sql ... ```;
+      - o ponto e vírgula final.
+    """
+    # re.DOTALL faz o "." casar também com quebras de linha
+    resposta = re.sub(r"<think>.*?</think>", "", resposta, flags=re.DOTALL)
+
+    # Se houver um bloco ```...```, fica só com o conteúdo dele
+    bloco = re.search(r"```(?:sql)?\s*(.*?)```", resposta, flags=re.DOTALL | re.IGNORECASE)
+    if bloco:
+        resposta = bloco.group(1)
+
+    return resposta.strip().rstrip(";").strip()
+
+
+def sql_e_seguro(sql):
+    """Aceita só uma instrução que comece com SELECT ou WITH."""
+    if not re.match(r"^(select|with)\b", sql, flags=re.IGNORECASE):
         return False
-    print_result(result)
+    if ";" in sql:            # mais de uma instrução na mesma resposta
+        return False
     return True
 
 
-# ---------------------------------------------------------------------------
-# Ollama (linguagem natural -> SQL)
-# ---------------------------------------------------------------------------
+def pergunta_linguagem_natural(conn, client, ddl):
+    """Fluxo completo: pergunta -> modelo -> SQL -> banco -> resultado."""
+    pergunta = input("\nDigite sua pergunta: ").strip()
+    if not pergunta:
+        return
 
-def check_ollama(client: Client, model: str) -> None:
-    """Verificação informativa; não impede o uso das consultas predefinidas."""
+    mensagens = montar_mensagens(ddl, pergunta)
+
+    print("Consultando o modelo (pode demorar um pouco)...")
     try:
-        client.list()
-    except Exception as exc:  # noqa: BLE001 - qualquer falha de rede/servidor
-        print_error(f"Ollama inacessível: {exc}")
-        print("As consultas predefinidas continuam disponíveis; "
-              "a opção de linguagem natural dependerá do Ollama.")
+        # Chamada ao modelo (trecho obrigatório do PDF)
+        try:
+            response = client.chat(
+                model=config["ollama"]["model"],
+                messages=mensagens,
+                # think=False desliga o "raciocínio" de modelos como o qwen3.5.
+                # Com ele ligado, o modelo pode gastar toda a resposta pensando
+                # e devolver o campo de conteúdo vazio.
+                think=False,
+                # temperature 0 = respostas mais determinísticas (melhor para SQL)
+                options={"temperature": 0},
+            )
+        except TypeError:
+            # Versão antiga da biblioteca ollama, que não aceita o parâmetro think
+            response = client.chat(
+                model=config["ollama"]["model"],
+                messages=mensagens,
+                options={"temperature": 0},
+            )
+        resposta = response["message"]["content"] or ""
+    except Exception as erro:
+        # Ollama desligado, modelo não baixado, etc.
+        print(f"Erro ao se comunicar com o Ollama: {erro}")
         return
-    print_info(f"Ollama acessível. Modelo configurado: {model}")
 
+    sql = limpar_sql(resposta)
+    if not sql:
+        print("\nErro: o modelo devolveu uma resposta vazia. Tente de novo ou "
+              "troque o modelo no config.json.")
+        return
+    print("\nSQL gerado pelo modelo:")
+    print(sql)
 
-def build_prompt(ddl: str, question: str,
-                 previous_sql: str | None = None,
-                 error: str | None = None) -> str:
-    correction_block = ""
-    if previous_sql and error:
-        correction_block = LLM_CORRECTION_BLOCK_TEMPLATE.format(
-            previous_sql=previous_sql, error=error
-        )
-    return LLM_PROMPT_TEMPLATE.format(
-        ddl=ddl, correction_block=correction_block, question=question
-    )
+    if not sql_e_seguro(sql):
+        print("\nErro: o modelo não gerou uma consulta SELECT válida. "
+              "Tente reformular a pergunta.")
+        return
 
-
-def clean_llm_sql(raw_response: str) -> str:
-    """Remove raciocínio (<think>), cercas de código e texto extra da resposta."""
-    text = RE_THINK_BLOCK.sub("", raw_response).strip()
-
-    fenced = RE_CODE_FENCE.search(text)
-    if fenced:
-        text = fenced.group(1).strip()
+    colunas, resultado = executar_sql(conn, sql)
+    if colunas is None:
+        print(f"\nErro: a consulta gerada está incorreta.\nDetalhe: {resultado}")
+    elif not resultado:
+        print("\nA consulta foi executada, mas não retornou nenhuma linha.")
     else:
-        start = RE_SQL_START.search(text)
-        if start:
-            text = text[start.start():].strip()
-
-    return text.rstrip().rstrip(";").strip()
-
-
-def is_read_only_sql(sql: str) -> bool:
-    return sql.lower().lstrip("( \n\t").startswith(SQL_ALLOWED_PREFIXES)
-
-
-def generate_sql(client: Client, model: str, ddl: str, question: str,
-                 previous_sql: str | None = None,
-                 error: str | None = None) -> str:
-    """Pede ao modelo um SQL para a pergunta e devolve o texto já limpo."""
-    prompt = build_prompt(ddl, question, previous_sql, error)
-    response = client.chat(
-        model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-    )
-    resposta = response["message"]["content"]
-    return clean_llm_sql(resposta)
-
-
-def answer_natural_language_question(conn: psycopg.Connection, client: Client,
-                                     model: str, ddl: str, question: str) -> None:
-    """Converte a pergunta em SQL, executa e mostra resultado ou erro."""
-    previous_sql: str | None = None
-    last_error: str | None = None
-
-    for attempt in range(MAX_SQL_CORRECTION_ATTEMPTS + 1):
-        if attempt == 0:
-            print_info("Gerando SQL com o modelo local...")
-        else:
-            print_info(f"Tentando corrigir o SQL (tentativa {attempt}/"
-                       f"{MAX_SQL_CORRECTION_ATTEMPTS})...")
-
-        try:
-            sql = generate_sql(client, model, ddl, question, previous_sql, last_error)
-        except Exception as exc:  # noqa: BLE001 - erros de rede/modelo do Ollama
-            print_error(f"Falha na comunicação com o Ollama: {exc}")
-            return
-
-        print("\nSQL gerado:")
-        print(sql if sql else "(vazio)")
-        print()
-
-        if not sql or not is_read_only_sql(sql):
-            last_error = "O modelo não produziu uma consulta SELECT válida."
-            print_error(last_error)
-            previous_sql = sql or "(vazio)"
-            continue
-
-        try:
-            result = execute_sql(conn, sql)
-        except psycopg.Error as exc:
-            last_error = str(exc).strip()
-            print_error(f"Consulta incorreta: {last_error}")
-            previous_sql = sql
-            continue
-
-        print_result(result)
-        return
-
-    print_error("Não foi possível obter uma consulta válida para esta pergunta. "
-                "Tente reformulá-la com mais detalhes.")
+        imprimir_tabela(colunas, resultado)
 
 
 # ---------------------------------------------------------------------------
-# Fluxos de menu
+# 9) MENU PRINCIPAL
 # ---------------------------------------------------------------------------
+def main():
+    ddl = carregar_ddl()
+    conn = conectar_banco()
+    client = criar_cliente_ollama()
+    print("Conectado ao banco de dados com sucesso!")
 
-def show_main_menu(model: str, dbname: str) -> None:
-    print_banner("SISTEMA DE GESTÃO DE EVENTOS E ESPAÇOS")
-    print(f"Banco: {dbname} | Modelo Ollama: {model}\n")
-    print(f"  [{MENU_RUN_PREDEFINED}] Executar consultas predefinidas")
-    print(f"  [{MENU_ASK_NATURAL_LANGUAGE}] Fazer pergunta em linguagem natural")
-    print(f"  [{MENU_CHANGE_CONNECTION}] Alterar conexão com o banco")
-    print(f"  [{MENU_EXIT}] Sair")
-
-
-def run_predefined_query(conn: psycopg.Connection, query: PredefinedQuery) -> None:
-    print_banner(f"CONSULTA {query.number}")
-    print(f"Objetivo: {query.objective}\n")
-    print("SQL:")
-    print(query.sql)
-    print()
-    run_and_print(conn, query.sql)
-
-
-def predefined_queries_menu(conn: psycopg.Connection,
-                            queries: list[PredefinedQuery]) -> None:
-    if not queries:
-        print_error(f"Nenhuma consulta encontrada em {PROJECT_FILE_NAME}.")
-        return
-
-    by_number = {str(query.number): query for query in queries}
-
-    while True:
-        print_banner("CONSULTAS PREDEFINIDAS")
-        for query in queries:
-            print(f"  [{query.number}] {query.objective}")
-        print(f"  [{QUERY_MENU_RUN_ALL}] Executar todas")
-        print(f"  [{QUERY_MENU_BACK}] Voltar")
-
-        choice = read_input("\nEscolha: ").lower()
-        if choice == QUERY_MENU_BACK:
-            return
-        if choice == QUERY_MENU_RUN_ALL:
-            for query in queries:
-                run_predefined_query(conn, query)
-        elif choice in by_number:
-            run_predefined_query(conn, by_number[choice])
-        else:
-            print_error("Opção inválida.")
-
-
-def natural_language_menu(conn: psycopg.Connection, client: Client,
-                          model: str, ddl: str) -> None:
-    print_banner("PERGUNTA EM LINGUAGEM NATURAL")
-    print("Digite sua pergunta sobre eventos, sessões, espaços e participantes.")
-    print("Para voltar ao menu, digite 'sair' ou pressione Enter em branco.\n")
-
-    while True:
-        question = read_input("Pergunta> ")
-        if question.lower() in NL_EXIT_COMMANDS:
-            return
-        answer_natural_language_question(conn, client, model, ddl, question)
-        print()
-
-
-# ---------------------------------------------------------------------------
-# Programa principal
-# ---------------------------------------------------------------------------
-
-def main() -> None:
-    config = load_config()
-    projeto = load_project_file()
-    ddl = extract_ddl(projeto)
-    queries = extract_queries(projeto)
-
-    ollama_config = config["ollama"]
-    client = Client(
-        host=ollama_config["host"]
-    )
-    model = ollama_config["model"]
-
-    print_banner("SCC0640 - PROTÓTIPO DE BASES DE DADOS")
-    print_info(f"{len(queries)} consulta(s) carregada(s) de {PROJECT_FILE_NAME}.")
-    check_ollama(client, model)
-    print()
-
-    conn, db_params = establish_connection(config["database"])
+    # A opção de linguagem natural vem logo depois da última consulta fixa
+    opcao_nl = len(CONSULTAS) + 1
 
     try:
         while True:
-            show_main_menu(model, db_params["dbname"])
-            choice = read_input("\nEscolha: ")
+            print("\n========== SISTEMA DE GESTÃO DE EVENTOS E ESPAÇOS ==========")
+            for i, consulta in enumerate(CONSULTAS, start=1):
+                print(f"  {i}) {consulta['titulo']}")
+            print(f"  {opcao_nl}) Fazer uma pergunta em linguagem natural (Ollama)")
+            print("  0) Sair")
 
-            if choice == MENU_RUN_PREDEFINED:
-                predefined_queries_menu(conn, queries)
-            elif choice == MENU_ASK_NATURAL_LANGUAGE:
-                natural_language_menu(conn, client, model, ddl)
-            elif choice == MENU_CHANGE_CONNECTION:
-                new_conn, db_params = establish_connection(db_params)
-                conn.close()
-                conn = new_conn
-            elif choice == MENU_EXIT:
-                print("Encerrando. Até logo!")
+            escolha = input("Escolha uma opção: ").strip()
+
+            if escolha == "0":
                 break
+            elif escolha.isdigit() and 1 <= int(escolha) <= len(CONSULTAS):
+                rodar_consulta(conn, CONSULTAS[int(escolha) - 1])
+            elif escolha == str(opcao_nl):
+                pergunta_linguagem_natural(conn, client, ddl)
             else:
-                print_error("Opção inválida.")
+                print("Opção inválida.")
+    except (KeyboardInterrupt, EOFError):
+        # Ctrl+C ou Ctrl+D: sai sem mostrar erro
+        print()
     finally:
         conn.close()
+        print("Conexão encerrada.")
 
 
+# Só executa main() quando o arquivo é rodado diretamente (python main.py),
+# e não quando é importado por outro arquivo.
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\nInterrompido pelo usuário.")
-        sys.exit(130)
+    main()
