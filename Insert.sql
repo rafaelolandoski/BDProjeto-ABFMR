@@ -19,7 +19,8 @@ INSERT INTO Evento (id_evento, nome, edicao, data_inicio, data_fim) VALUES
 (4, 'Semana de Tecnologia',     4, '2025-03-11', '2025-03-15'),
 (5, 'Congresso de Dados',       1, '2025-05-14', '2025-05-16'),
 (6, 'Hackathon Universitário',  3, '2026-10-24', '2026-10-25'),
-(7, 'Simpósio de Segurança',    1, '2026-11-16', '2026-11-18');
+(7, 'Simpósio de Segurança',    1, '2026-11-16', '2026-11-18'),
+(8, 'Feira de Inovação',        1, '2026-12-03', '2026-12-05');
  
 -- ---------------------------------------------------------------------
 -- Atividade (25)
@@ -49,7 +50,9 @@ INSERT INTO Atividade (id_atividade, id_evento, titulo, descricao) VALUES
 (22, 7, 'Introdução à Segurança da Informação','Princípios de confidencialidade, integridade e disponibilidade.'),
 (23, 7, 'Laboratório de Pentest Ético',       'Testes de invasão em ambiente controlado.'),
 (24, 7, 'Mesa: Proteção de Dados e LGPD',     'Impactos da LGPD nas organizações.'),
-(25, 7, 'Workshop de Criptografia',           'Criptografia simétrica, assimétrica e hashing.');
+(25, 7, 'Workshop de Criptografia',           'Criptografia simétrica, assimétrica e hashing.'),
+(26, 8, 'Palestra de Abertura - Inovação', 'Apresentação das novas tecnologias e projetos.'),
+(27, 8, 'Oficina de Python Aplicado', 'Desenvolvimento prático de aplicações com Python.');
  
 -- ---------------------------------------------------------------------
 -- Espaco (10)
@@ -152,7 +155,9 @@ INSERT INTO Ativ_Tipo_Recurso (id_atividade, id_tipo, quantidade) VALUES
 (22, 5, 1), (22, 4, 1),
 (23, 3, 20), (23, 7, 1),
 (24, 2, 2), (24, 6, 2),
-(25, 4, 1), (25, 5, 1);
+(25, 4, 1), (25, 5, 1),
+(26, 1, 1), (26, 2, 1), (26, 4, 1),
+(27, 3, 25), (27, 4, 1);
  
 -- ---------------------------------------------------------------------
 -- Sessao (31)  columns: n_sessao, id_atividade, id_espaco, inicio, fim, vagas
@@ -197,7 +202,10 @@ INSERT INTO Sessao (n_sessao, id_atividade, id_espaco, horario_inicio, horario_f
 (1, 23, 3, '2026-11-17 14:00', '2026-11-17 18:00', 20),
 (2, 23, 3, '2026-11-18 14:00', '2026-11-18 18:00', 20),
 (1, 24, 4, '2026-11-17 10:00', '2026-11-17 12:00', 60),
-(1, 25, 2, '2026-11-18 09:00', '2026-11-18 12:00', 30);
+(1, 25, 2, '2026-11-18 09:00', '2026-11-18 12:00', 30),
+(1, 26, 1, '2026-12-03 09:00', '2026-12-03 10:30', NULL),
+(1, 27, 3, '2026-12-03 14:00', '2026-12-03 17:00', 20),
+(2, 27, 3, '2026-12-04 14:00', '2026-12-04 17:00', 15);
  
 -- ---------------------------------------------------------------------
 -- Pessoa
@@ -294,7 +302,8 @@ INSERT INTO Org_Evento (CNPJ, id_evento) VALUES
 ('22333444000172', 4), ('11222333000181', 4),
 ('33444555000163', 5), ('77888999000127', 5),
 ('77888999000127', 6), ('10111222000190', 6), ('11222333000181', 6),
-('88999000000118', 7), ('10111222000190', 7), ('99000111000109', 7);
+('88999000000118', 7), ('10111222000190', 7), ('99000111000109', 7),
+('11222333000181', 8), ('22333444000172', 8);
  
 INSERT INTO Organizador_Organizacao (CPF, CNPJ) VALUES
 ('22233344455', '22333444000172'),
@@ -323,11 +332,12 @@ FROM (VALUES
     (5, 5, 20),
     (6, 15, 40),
     (7, 1, 10),
-    (7, 30, 40)
+    (7, 30, 40),
+    (8, 1, 29)
 ) AS v(e, lo, hi),
 generate_series(v.lo, v.hi) AS n;
  
-INSERT INTO Part_Evento (id_evento, CPF) VALUES (1, '77788899900');   -- Gabriela
+INSERT INTO Part_Evento (id_evento, CPF) VALUES (1, '77788899900'), (8, '77788899900');   -- Gabriela
  
 -- ---------------------------------------------------------------------
 -- Part_Sessao: everyone enrolled is registered in the session's event,
@@ -369,7 +379,9 @@ FROM (VALUES
     (1, 24,  1, 10),
     (1, 24, 30, 40),
     (1, 25,  1, 10),
-    (1, 25, 30, 40)
+    (1, 25, 30, 40),
+    (1, 27,  1, 20),
+    (2, 27, 15, 29)
 ) AS v(ns, ia, lo, hi),
 generate_series(v.lo, v.hi) AS n;
  
@@ -394,7 +406,9 @@ INSERT INTO Lista_de_Espera (CPF, n_sessao, id_atividade, dataInscricao) VALUES
 -- (1,11): 3/3
 ('70000000023', 1, 11, '2026-07-20 09:00:00'),
 ('70000000024', 1, 11, '2026-07-20 09:05:00'),
-('70000000025', 1, 11, DEFAULT);           -- uses CURRENT_TIMESTAMP
+('70000000025', 1, 11, DEFAULT),
+('70000000021', 1, 27, '2026-10-27 09:00:00'),
+('70000000022', 1, 27, '2026-10-27 09:10:00');       -- uses CURRENT_TIMESTAMP
  
 -- ---------------------------------------------------------------------
 -- Inst_Sessao: instructors are never participants or speakers of the
@@ -420,7 +434,9 @@ INSERT INTO Inst_Sessao (CPF, n_sessao, id_atividade) VALUES
 ('80000000002', 1, 23),
 ('80000000002', 2, 23),
 ('80000000003', 2, 23),
-('77788899900', 1, 25);
+('77788899900', 1, 25),
+('66677788899', 1, 27),
+('77788899900', 2, 27);
  
 -- ---------------------------------------------------------------------
 -- Pales_Ativ: speakers are never participants/instructors of the activity
@@ -450,6 +466,8 @@ INSERT INTO Pales_Ativ (CPF, id_atividade) VALUES
 ('90000000003', 22),
 ('90000000005', 23),
 ('90000000002', 24), ('33344455566', 24),
-('90000000001', 25);
+('90000000001', 25),
+('11122233344', 26),
+('90000000001', 27);
  
 COMMIT;
