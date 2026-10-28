@@ -7,7 +7,12 @@ MODELO UTILIZADO NO OLLAMA: qwen3:8b
 ============================================================
 1. DESCRICAO FINAL DO SISTEMA
 ============================================================
-O sistema gerenciador de banco de dados implementado manipula os dados referentes a criacao e organizacao de eventos. Permite cadastrar eventos, as atividades de cada evento e as sessoes de cada atividade. Permite obter informacoes sobre horarios das sessoes, participantes, listas de espera, inscricoes, espacos utilizados nas sessoes e recursos disponiveis nesses espacos. Diversos triggers foram implementados para garantir a integridade dos dados e a consistencia das regras de negocio, como conflito de espaco e horario, limite de vagas, lista de espera automatica e restricao de papeis.
+O sistema gerenciador de banco de dados implementado manipula os dados referentes a criacao e organizacao de eventos. 
+Permite cadastrar eventos, as atividades de cada evento e as sessoes de cada atividade. 
+Permite obter informacoes sobre horarios das sessoes, participantes, listas de espera, inscricoes, 
+espacos utilizados nas sessoes e recursos disponiveis nesses espacos. 
+Diversos triggers foram implementados para garantir a integridade dos dados e a consistencia das regras de negocio, 
+como conflito de espaco e horario, limite de vagas, lista de espera automatica e restricao de papeis.
 ============================================================
 2. DECISOES DE PROJETO
 ============================================================

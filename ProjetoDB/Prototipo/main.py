@@ -335,18 +335,60 @@ def rodar_consulta(conn, consulta):
 # ---------------------------------------------------------------------------
 # 8) LINGUAGEM NATURAL -> SQL (itens 5 a 8 do protótipo)
 # ---------------------------------------------------------------------------
+def apenas_tabelas(ddl):
+    """
+    O trecho "3. DDL COMPLETO" do Projeto.txt também contém as funções e
+    triggers. Para gerar SELECT o modelo só precisa das tabelas, e o texto extra
+    deixa o prompt enorme (o que pode estourar o contexto do modelo). Por isso
+    cortamos tudo a partir do primeiro CREATE FUNCTION / CREATE TRIGGER.
+    """
+    corte = re.search(r"CREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|TRIGGER)", ddl, flags=re.IGNORECASE)
+    return ddl[: corte.start()].strip() if corte else ddl
+
+
+def resumir_esquema(ddl):
+    """
+    Gera uma lista compacta "Tabela(coluna1, coluna2, ...)" a partir dos
+    CREATE TABLE. Modelos pequenos erram menos os nomes das colunas quando
+    têm essa lista curta à vista, além do DDL completo.
+    """
+    linhas = []
+    for nome, corpo in re.findall(r"CREATE\s+TABLE\s+(\w+)\s*\((.*?)\n\s*\);",
+                                  ddl, flags=re.DOTALL | re.IGNORECASE):
+        colunas = []
+        for linha in corpo.splitlines():
+            linha = linha.strip()
+            # ignora linhas vazias, comentários e continuações de restrições
+            if not linha or linha.startswith(("--", "(", ")")):
+                continue
+            palavra = linha.split()[0].rstrip(",")
+            if palavra.upper() in ("CONSTRAINT", "PRIMARY", "FOREIGN", "REFERENCES",
+                                   "ON", "UNIQUE", "CHECK"):
+                continue
+            colunas.append(re.split(r"[\s(,]", palavra)[0])
+        linhas.append(f"{nome}({', '.join(colunas)})")
+    return "\n".join(linhas)
+
+
 def montar_mensagens(ddl, pergunta):
     """
     Monta a lista de mensagens enviada ao modelo, separando os papéis:
-      - "system": quem o modelo é, as regras e o esquema (DDL) do banco;
+      - "system": quem o modelo é, as regras, dicas do esquema e exemplos;
       - "user":   a pergunta digitada pelo usuário.
     Separar as regras da pergunta ajuda o modelo a segui-las melhor.
     """
+    ddl_tabelas = apenas_tabelas(ddl)
+    resumo = resumir_esquema(ddl_tabelas)
+
     system = f"""Você é um assistente especializado em SQL PostgreSQL.
 
-Use exclusivamente o seguinte esquema (DDL) de um banco de gestão de eventos e espaços:
+Resumo das tabelas e colunas do banco (use EXATAMENTE estes nomes):
 
-{ddl}
+{resumo}
+
+DDL completo (tipos, chaves primárias e estrangeiras):
+
+{ddl_tabelas}
 
 Regras:
 - Gere apenas consultas SQL compatíveis com PostgreSQL.
@@ -354,7 +396,15 @@ Regras:
 - Gere apenas comandos SELECT (ou WITH ... SELECT), nunca comandos que alterem dados.
 - Gere uma única consulta.
 - Retorne apenas o comando SQL, sem explicações e sem comentários.
-- Se a pergunta não puder ser respondida com esse esquema, diga que não é possível."""
+- Se a pergunta não puder ser respondida com esse esquema, diga que não é possível.
+- Para perguntas que começam com "quantos/quantas", use COUNT.
+
+Exemplos:
+Pergunta: Quais espaços têm capacidade maior que 100?
+SQL: SELECT nome, capacidade FROM Espaco WHERE capacidade > 100 ORDER BY capacidade DESC
+
+Pergunta: Quais atividades pertencem ao evento Semana de Tecnologia?
+SQL: SELECT a.titulo FROM Atividade a JOIN Evento e ON e.id_evento = a.id_evento WHERE e.nome = 'Semana de Tecnologia'"""
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": pergunta},
@@ -388,6 +438,35 @@ def sql_e_seguro(sql):
     return True
 
 
+def gerar_sql(client, mensagens):
+    """Envia as mensagens ao modelo e devolve o SQL já limpo ("" se vier vazio)."""
+    try:
+        # Chamada ao modelo (trecho obrigatório do PDF)
+        response = client.chat(
+            model=config["ollama"]["model"],
+            messages=mensagens,
+            # think=False desliga o "raciocínio" de modelos como o qwen3.5.
+            # Com ele ligado, o modelo pode gastar toda a resposta pensando
+            # e devolver o campo de conteúdo vazio.
+            think=False,
+            # temperature 0 = respostas mais determinísticas (melhor para SQL)
+            options={"temperature": 0, "num_ctx": 8192},
+        )
+    except TypeError:
+        # Versão antiga da biblioteca ollama, que não aceita o parâmetro think
+        response = client.chat(
+            model=config["ollama"]["model"],
+            messages=mensagens,
+            options={"temperature": 0, "num_ctx": 8192},
+        )
+    resposta = response["message"]["content"] or ""
+    return limpar_sql(resposta)
+
+
+# Quantas vezes o modelo pode tentar (1 tentativa + correções após erro do banco)
+MAX_TENTATIVAS = 3
+
+
 def pergunta_linguagem_natural(conn, client, ddl):
     """Fluxo completo: pergunta -> modelo -> SQL -> banco -> resultado."""
     pergunta = input("\nDigite sua pergunta: ").strip()
@@ -395,54 +474,54 @@ def pergunta_linguagem_natural(conn, client, ddl):
         return
 
     mensagens = montar_mensagens(ddl, pergunta)
-
     print("Consultando o modelo (pode demorar um pouco)...")
-    try:
-        # Chamada ao modelo (trecho obrigatório do PDF)
+
+    for tentativa in range(1, MAX_TENTATIVAS + 1):
         try:
-            response = client.chat(
-                model=config["ollama"]["model"],
-                messages=mensagens,
-                # think=False desliga o "raciocínio" de modelos como o qwen3.5.
-                # Com ele ligado, o modelo pode gastar toda a resposta pensando
-                # e devolver o campo de conteúdo vazio.
-                think=False,
-                # temperature 0 = respostas mais determinísticas (melhor para SQL)
-                options={"temperature": 0},
-            )
-        except TypeError:
-            # Versão antiga da biblioteca ollama, que não aceita o parâmetro think
-            response = client.chat(
-                model=config["ollama"]["model"],
-                messages=mensagens,
-                options={"temperature": 0},
-            )
-        resposta = response["message"]["content"] or ""
-    except Exception as erro:
-        # Ollama desligado, modelo não baixado, etc.
-        print(f"Erro ao se comunicar com o Ollama: {erro}")
-        return
+            sql = gerar_sql(client, mensagens)
+        except Exception as erro:
+            # Ollama desligado, modelo não baixado, etc.
+            print(f"Erro ao se comunicar com o Ollama: {erro}")
+            return
 
-    sql = limpar_sql(resposta)
-    if not sql:
-        print("\nErro: o modelo devolveu uma resposta vazia. Tente de novo ou "
-              "troque o modelo no config.json.")
-        return
-    print("\nSQL gerado pelo modelo:")
-    print(sql)
+        if not sql:
+            print("\nErro: o modelo devolveu uma resposta vazia. Tente de novo ou "
+                  "troque o modelo no config.json.")
+            return
 
-    if not sql_e_seguro(sql):
-        print("\nErro: o modelo não gerou uma consulta SELECT válida. "
-              "Tente reformular a pergunta.")
-        return
+        print(f"\nSQL gerado pelo modelo (tentativa {tentativa}):")
+        print(sql)
 
-    colunas, resultado = executar_sql(conn, sql)
-    if colunas is None:
+        if not sql_e_seguro(sql):
+            print("\nErro: o modelo não gerou uma consulta SELECT válida. "
+                  "Tente reformular a pergunta.")
+            return
+
+        colunas, resultado = executar_sql(conn, sql)
+        if colunas is not None:
+            # Deu certo: mostra o resultado e termina
+            if not resultado:
+                print("\nA consulta foi executada, mas não retornou nenhuma linha.")
+            else:
+                imprimir_tabela(colunas, resultado)
+            return
+
+        # O banco recusou o SQL: mostra o erro
         print(f"\nErro: a consulta gerada está incorreta.\nDetalhe: {resultado}")
-    elif not resultado:
-        print("\nA consulta foi executada, mas não retornou nenhuma linha.")
-    else:
-        imprimir_tabela(colunas, resultado)
+
+        if tentativa < MAX_TENTATIVAS:
+            # Devolve o erro ao modelo para ele corrigir o próprio SQL
+            print("Pedindo ao modelo para corrigir a consulta...")
+            mensagens = mensagens + [
+                {"role": "assistant", "content": sql},
+                {"role": "user", "content": (
+                    f"Essa consulta gerou o seguinte erro no PostgreSQL:\n{resultado}\n"
+                    "Corrija a consulta usando somente tabelas e colunas do esquema. "
+                    "Responda apenas com o SQL.")},
+            ]
+
+    print("\nNão foi possível gerar uma consulta correta. "
+          "Tente reformular a pergunta.")
 
 
 # ---------------------------------------------------------------------------
