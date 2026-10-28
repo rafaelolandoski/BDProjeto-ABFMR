@@ -452,8 +452,11 @@ def gerar_sql(client, mensagens):
             # temperature 0 = respostas mais determinísticas (melhor para SQL)
             options={"temperature": 0, "num_ctx": 8192},
         )
-    except TypeError:
-        # Versão antiga da biblioteca ollama, que não aceita o parâmetro think
+    except Exception:
+        # Plano B: sem o parâmetro think. Cobre biblioteca ollama antiga (que não
+        # aceita o argumento) e modelos que não suportam "think". Se o problema
+        # for outro (Ollama desligado, modelo não baixado), esta segunda chamada
+        # falha de novo e o erro é mostrado ao usuário pela função chamadora.
         response = client.chat(
             model=config["ollama"]["model"],
             messages=mensagens,
