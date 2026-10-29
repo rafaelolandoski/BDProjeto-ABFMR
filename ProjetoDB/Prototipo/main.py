@@ -68,8 +68,8 @@ CONSULTAS = [
             ORDER BY s.horario_inicio ASC NULLS LAST, a.titulo ASC
         """,
         "parametros": [
-            ("Nome do evento", "Semana da Engenharia de Computação", str),
-            ("Edição", "2026", int),
+            ("Nome do evento", "Semana de Tecnologia", str),
+            ("Edição", "1", int),
         ],
     },
     {
