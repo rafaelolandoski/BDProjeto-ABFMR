@@ -1,0 +1,106 @@
+// A conferência é feita por tabela, por estudante.
+
+// Para cada tabela, verifique os atributos e os relacionamentos com as outras tabelas (cardinalidade e chaves estrangeiras)
+// Verifique também chaves secundárias, atributos Not Null e atributos Unique
+
+// São 20 tabelas (demora menos de 20 minutos pra conferir tudo)
+
+1.  Evento:
+    Rafael      -   conferido
+    Matheus     -   
+    Alexandre   -   
+
+2.  Atividade:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+3.  Espaco:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+4.  Sessao:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+5.  Tipo_Recurso:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+6.  Recurso:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+7.  Pessoa:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+8.  Palestrante:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+9.  Participante:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+10. Instrutor:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+11. Organizador:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+12. Organizacao:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+13. Org_Evento:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+14. Part_Evento:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+15. Part_Sessao:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+16. Lista_de_Espera:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+17. Inst_Sessao:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+18. Ativ_Tipo_Recurso:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+19. Pales_Ativ:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
+
+20. Organizador_Organizacao:
+    Rafael      -   
+    Matheus     -   
+    Alexandre   -   
