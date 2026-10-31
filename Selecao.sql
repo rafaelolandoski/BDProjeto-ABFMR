@@ -12,7 +12,7 @@ FROM Evento ev
 JOIN Atividade a ON a.id_evento=ev.id_evento 
 LEFT JOIN Sessao s ON a.id_atividade=s.id_atividade
 LEFT JOIN Espaco e ON s.id_espaco=e.id_espaco 
-WHERE ev.nome='Semana de Tecnologia' AND ev.edicao=1
+WHERE ev.nome='Semana de Tecnologia' AND ev.edicao=5
 ORDER BY s.horario_inicio ASC NULLS LAST, a.titulo ASC;
 
 -- buscar os participantes de uma atividade x

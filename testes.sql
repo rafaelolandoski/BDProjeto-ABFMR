@@ -83,3 +83,18 @@ ORDER BY dataInscricao;
 
 -- Desfazer o teste
 ROLLBACK;
+
+-- 1. testa inserir numa sessão cheia
+BEGIN;
+
+-- 2. Tenta fazer a inserção em uma sessão que já está cheia (ex: n_sessao = 2, id_atividade = 2)
+-- Usando o CPF '70000000003' que já existe nas tabelas Pessoa, Participante e Part_Evento
+INSERT INTO Part_Sessao (CPF, n_sessao, id_atividade)
+VALUES ('70000000003', 2, 2);
+
+-- 3. Consulta a tabela de lista de espera para verificar se o trigger funcionou corretamente
+SELECT * FROM Lista_de_Espera 
+WHERE n_sessao = 2 AND id_atividade = 2;
+
+-- 4. Desfaz a transação para que nenhuma alteração seja salva permanentemente
+ROLLBACK;

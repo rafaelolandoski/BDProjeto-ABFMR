@@ -69,7 +69,7 @@ CONSULTAS = [
         """,
         "parametros": [
             ("Nome do evento", "Semana de Tecnologia", str),
-            ("Edição", "1", int),
+            ("Edição", "5", int),
         ],
     },
     {
