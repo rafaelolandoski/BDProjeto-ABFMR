@@ -26,7 +26,7 @@ CREATE TABLE Espaco(
     id_espaco integer PRIMARY KEY,
     nome varchar(50) NOT NULL,
     capacidade smallint NOT NULL,
-    CONSTRAINT ck_cap CHECK(capacidade >0 OR capacidade IS NULL)-- se capacidade for nula, é ilimitada
+    CONSTRAINT ck_cap CHECK(capacidade >0)
 );
 
 CREATE TABLE Sessao(
