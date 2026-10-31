@@ -68,8 +68,8 @@ CONSULTAS = [
             ORDER BY s.horario_inicio ASC NULLS LAST, a.titulo ASC
         """,
         "parametros": [
-            ("Nome do evento", "Semana de Tecnologia", str),
-            ("Edição", "5", int),
+            ("Nome do evento", "Semana da Engenharia de Computação", str),
+            ("Edição", "2026", int),
         ],
     },
     {
@@ -346,27 +346,73 @@ def apenas_tabelas(ddl):
     return ddl[: corte.start()].strip() if corte else ddl
 
 
+def _dividir_itens(corpo):
+    """Divide o corpo de um CREATE TABLE em itens, separando só as vírgulas fora de parênteses."""
+    itens, atual, nivel = [], "", 0
+    for ch in corpo:
+        if ch == "(":
+            nivel += 1
+        elif ch == ")":
+            nivel -= 1
+        if ch == "," and nivel == 0:
+            itens.append(atual.strip())
+            atual = ""
+        else:
+            atual += ch
+    if atual.strip():
+        itens.append(atual.strip())
+    return itens
+
+
 def resumir_esquema(ddl):
     """
-    Gera uma lista compacta "Tabela(coluna1, coluna2, ...)" a partir dos
-    CREATE TABLE. Modelos pequenos erram menos os nomes das colunas quando
-    têm essa lista curta à vista, além do DDL completo.
+    Gera uma linha por tabela, extraída automaticamente dos CREATE TABLE:
+      Tabela(colunas) | PK: ... | FK: (col) -> Tabela | UNICO: (col1, col2)
+    Com a chave primária, as chaves estrangeiras e as colunas únicas à vista, o
+    modelo percebe sozinho que "nome" não identifica uma linha e em que tabela
+    buscar um dado que não existe na tabela atual (seguindo a FK).
     """
+    def limpar(lista):
+        return ", ".join(c.strip() for c in lista.split(","))
+
+    tabelas = re.findall(r"CREATE\s+TABLE\s+(\w+)\s*\((.*?)\n\s*\);",
+                         ddl, flags=re.DOTALL | re.IGNORECASE)
+    # nome "oficial" de cada tabela (o DDL às vezes referencia com outra caixa: evento x Evento)
+    oficiais = {nome.lower(): nome for nome, _ in tabelas}
+
     linhas = []
-    for nome, corpo in re.findall(r"CREATE\s+TABLE\s+(\w+)\s*\((.*?)\n\s*\);",
-                                  ddl, flags=re.DOTALL | re.IGNORECASE):
-        colunas = []
-        for linha in corpo.splitlines():
-            linha = linha.strip()
-            # ignora linhas vazias, comentários e continuações de restrições
-            if not linha or linha.startswith(("--", "(", ")")):
+    for nome, corpo in tabelas:
+        corpo = re.sub(r"--[^\n]*", "", corpo)   # remove comentários
+        corpo = re.sub(r"\s+", " ", corpo)       # deixa tudo em uma linha
+        colunas, pk, unicos, fks = [], "", [], []
+        for item in _dividir_itens(corpo):
+            item = re.sub(r"^CONSTRAINT\s+\w+\s+", "", item, flags=re.IGNORECASE)
+            m_pk = re.match(r"PRIMARY KEY\s*\((.*?)\)", item, re.IGNORECASE)
+            m_un = re.match(r"UNIQUE\s*\((.*?)\)", item, re.IGNORECASE)
+            m_fk = re.match(r"FOREIGN KEY\s*\((.*?)\)\s*REFERENCES\s+(\w+)", item, re.IGNORECASE)
+            if m_pk:
+                pk = limpar(m_pk.group(1))
+            elif m_un:
+                unicos.append(f"({limpar(m_un.group(1))})")
+            elif m_fk:
+                fks.append(f"({limpar(m_fk.group(1))}) -> {oficiais.get(m_fk.group(2).lower(), m_fk.group(2))}")
+            elif re.match(r"CHECK\b", item, re.IGNORECASE):
                 continue
-            palavra = linha.split()[0].rstrip(",")
-            if palavra.upper() in ("CONSTRAINT", "PRIMARY", "FOREIGN", "REFERENCES",
-                                   "ON", "UNIQUE", "CHECK"):
-                continue
-            colunas.append(re.split(r"[\s(,]", palavra)[0])
-        linhas.append(f"{nome}({', '.join(colunas)})")
+            else:                                  # definição de coluna
+                col = item.split()[0]
+                colunas.append(col)
+                if re.search(r"PRIMARY KEY", item, re.IGNORECASE):
+                    pk = col
+                elif re.search(r"\bUNIQUE\b", item, re.IGNORECASE):
+                    unicos.append(f"({col})")
+        linha = f"{nome}({', '.join(colunas)})"
+        if pk:
+            linha += f" | PK: {pk}"
+        if fks:
+            linha += " | FK: " + "; ".join(fks)
+        if unicos:
+            linha += " | UNICO: " + "; ".join(unicos)
+        linhas.append(linha)
     return "\n".join(linhas)
 
 
@@ -382,7 +428,8 @@ def montar_mensagens(ddl, pergunta):
 
     system = f"""Você é um assistente especializado em SQL PostgreSQL.
 
-Resumo das tabelas e colunas do banco (use EXATAMENTE estes nomes):
+Resumo das tabelas do banco (use EXATAMENTE estes nomes de tabelas e colunas).
+PK = chave primária, FK = chave estrangeira, UNICO = combinação de colunas que não se repete:
 
 {resumo}
 
@@ -398,13 +445,22 @@ Regras:
 - Retorne apenas o comando SQL, sem explicações e sem comentários.
 - Se a pergunta não puder ser respondida com esse esquema, diga que não é possível.
 - Para perguntas que começam com "quantos/quantas", use COUNT.
+- Identifique cada registro pela chave primária (PK). Nomes e títulos podem se repetir em
+  linhas diferentes: agrupe e conte pela PK, nunca só por nome ou título.
+- Ao mostrar um registro, mostre também as colunas que o identificam (ex.: se UNICO é
+  (nome, edicao), mostre nome e edicao).
+- Se a coluna que você precisa (como nome) não existe na tabela, ela está na tabela apontada
+  pela FK: faça JOIN com essa tabela.
+- Responda tudo o que a pergunta pede: se ela pede duas informações, devolva as duas colunas.
+- Em médias ou contagens "por X", inclua também os X sem registros (LEFT JOIN a partir da tabela de X).
+- Use aliases em minúsculas e sem acentos (ex.: total_sessoes).
 
 Exemplos:
-Pergunta: Quais espaços têm capacidade maior que 100?
-SQL: SELECT nome, capacidade FROM Espaco WHERE capacidade > 100 ORDER BY capacidade DESC
+Pergunta: Quantas atividades cada evento possui?
+SQL: SELECT e.nome, e.edicao, COUNT(a.id_atividade) AS total_atividades FROM Evento e LEFT JOIN Atividade a ON a.id_evento = e.id_evento GROUP BY e.id_evento, e.nome, e.edicao ORDER BY total_atividades DESC
 
-Pergunta: Quais atividades pertencem ao evento Semana de Tecnologia?
-SQL: SELECT a.titulo FROM Atividade a JOIN Evento e ON e.id_evento = a.id_evento WHERE e.nome = 'Semana de Tecnologia'"""
+Pergunta: Quais pessoas são palestrantes de alguma atividade?
+SQL: SELECT DISTINCT p.nome FROM Pales_Ativ pa JOIN Pessoa p ON p.CPF = pa.CPF ORDER BY p.nome'"""
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": pergunta},
