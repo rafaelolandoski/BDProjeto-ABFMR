@@ -47,7 +47,14 @@ BEGIN
         WHERE atv.id_atividade=NEW.id_atividade AND COALESCE(er.qtd_rec,0) < atr.quantidade
         ) THEN RAISE EXCEPTION 'Erro: O espaço não possui recursos o suficiente';
     END IF;
-
+    -- sessões de uma mesma atividade não podem se sobrepor no tempo
+    IF EXISTS( SELECT 1 FROM Sessao WHERE id_atividade = NEW.id_atividade
+        AND NOT (TG_OP = 'UPDATE' AND n_sessao = OLD.n_sessao AND id_atividade = OLD.id_atividade)
+        AND (NEW.horario_inicio, NEW.horario_fim) OVERLAPS (horario_inicio, horario_fim)
+        )
+        THEN RAISE EXCEPTION 'Erro: a sessao (% ate %) se sobrepoe a outra sessao da mesma atividade',
+        NEW.horario_inicio, NEW.horario_fim;
+    END IF; 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
