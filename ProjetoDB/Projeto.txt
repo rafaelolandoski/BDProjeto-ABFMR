@@ -2,8 +2,14 @@
 SCC0640 - PROJETO DE BASES DE DADOS
 ============================================================
 GRUPO: ABFMR
-INTEGRANTES: Alexandre Coura Serravite, Bruno Baremaker Moraes, Felipe Freitas Maia, Matheus Watanabe, Rafael Olandoski de Oliveira
-MODELO UTILIZADO NO OLLAMA: qwen3:8b
+INTEGRANTES: 
+Nome: Bruno Baremaker Moraes	NUSP:15443854 
+Nome: Felipe Freitas Maia	NUSP:15451360
+Nome: Alexandre Coura Serravite	NUSP:15507531
+Nome: Rafael Olandoski de Oliveira	NUSP:15485382
+Nome: Matheus Watanabe de Vilhena	NUSP:15479767
+
+MODELO UTILIZADO NO OLLAMA: qwen3.5:9b
 ============================================================
 1. DESCRICAO FINAL DO SISTEMA
 ============================================================
