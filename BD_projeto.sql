@@ -58,7 +58,7 @@ CREATE TABLE Tipo_Recurso(
 CREATE TABLE Recurso(
     id_recurso integer PRIMARY KEY,
     id_tipo integer NOT NULL,
-    id_espaco integer NOT NULL,
+    id_espaco integer,
     nome varchar(50) NOT NULL,
     marca varchar(50) NOT NULL,
     preco numeric(9,2) NOT NULL,
