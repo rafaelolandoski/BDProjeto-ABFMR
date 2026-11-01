@@ -398,6 +398,15 @@ Regras:
 - Retorne apenas o comando SQL, sem explicações e sem comentários.
 - Se a pergunta não puder ser respondida com esse esquema, diga que não é possível.
 - Para perguntas que começam com "quantos/quantas", use COUNT.
+- Para perguntas que pedem ranking, use ROW_NUMBER, RANK, ou DENSE_RANK.
+- Para perguntas que pedem taxa, mostre a taxa.
+
+Peculiaridades das tabelas:
+- Um participante na lista de espera de uma sessao necessariamente não está em Part_Sessao
+- Um evento nunca é determinado apenas pelo nome, precisa também da edição, ou apenas o id_evento
+- Uma sessão única é determinada por n_sessao e do id_atividade
+- Informações que não são chaves primárias sempre estaram na tabela de origem e nunca nas tabelas de relação, por exemplo, nome de um pessoa estará na tabela Pessoa e não em Part_Sessao
+
 
 Exemplos:
 Pergunta: Quais espaços têm capacidade maior que 100?
