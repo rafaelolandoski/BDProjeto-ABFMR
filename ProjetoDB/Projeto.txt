@@ -73,7 +73,7 @@ CREATE TABLE Sessao(
     CONSTRAINT ck_vagas CHECK (vagas > 0 OR vagas IS NULL), --se vagas for nulo, não tem limite
     CONSTRAINT ck_horario CHECK(horario_inicio < horario_fim),
     CONSTRAINT fk_sessao_espaco FOREIGN KEY (id_espaco) 
-    REFERENCES Espaco(id_espaco) ON DELETE CASCADE,
+    REFERENCES Espaco(id_espaco) ON DELETE CASCADE ON UPDATE CASCADE,
 
     CONSTRAINT fk_sessao_atv FOREIGN KEY(id_atividade)
     REFERENCES atividade(id_atividade) ON DELETE CASCADE ON UPDATE RESTRICT --sem garantia que nova atividade cabe nos
