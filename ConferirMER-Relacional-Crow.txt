@@ -21,86 +21,86 @@
     Alexandre   -   
 
 4.  Sessao:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 5.  Tipo_Recurso:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 6.  Recurso:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 7.  Pessoa:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 8.  Palestrante:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 9.  Participante:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 10. Instrutor:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 11. Organizador:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 12. Organizacao:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 13. Org_Evento:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 14. Part_Evento:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 15. Part_Sessao:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 16. Lista_de_Espera:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 17. Inst_Sessao:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 18. Ativ_Tipo_Recurso:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 19. Pales_Ativ:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
 
 20. Organizador_Organizacao:
-    Rafael      -   
+    Rafael      -   conferido
     Matheus     -   
     Alexandre   -   
