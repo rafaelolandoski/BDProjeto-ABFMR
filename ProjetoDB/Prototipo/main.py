@@ -522,7 +522,7 @@ def gerar_sql(client, mensagens):
             # think=False desliga o "raciocínio" de modelos como o qwen3.5.
             # Com ele ligado, o modelo pode gastar toda a resposta pensando
             # e devolver o campo de conteúdo vazio.
-            think=False,
+            think="medium",
             # temperature 0 = respostas mais determinísticas (melhor para SQL)
             options={"temperature": 0, "num_ctx": 16384},
         )
