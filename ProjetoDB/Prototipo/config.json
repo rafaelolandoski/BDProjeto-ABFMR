@@ -8,6 +8,6 @@
     },
     "ollama": {
         "host": "http://localhost:11434",
-        "model": "qwen3.5:9b"
+        "model": "gpt-oss:20b"
     }
 }
