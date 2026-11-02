@@ -400,20 +400,85 @@ Regras:
 - Para perguntas que começam com "quantos/quantas", use COUNT.
 - Para perguntas que pedem ranking, use ROW_NUMBER, RANK, ou DENSE_RANK.
 - Para perguntas que pedem taxa, mostre a taxa.
+- Para calcular a diferença em dias entre duas datas(DATE) (data_fim - data_inicio), faça apenas a subtração direta (data_fim - data_inicio + 1), sem usar a função EXTRACT, pois a subtração de datas no PostgreSQL já retorna um número inteiro.
+- Quando a pergunta mencionar "desse evento", "por evento" ou "em cada evento", inclua o nome e a edicao do evento no resultado.
+- Sempre qualifique as colunas com o alias da tabela (ex.: pa.id_atividade), principalmente em subconsultas. Uma coluna sem alias que não existe na tabela da subconsulta é lida da consulta externa sem dar erro, e o resultado fica errado.
+- NUNCA junte duas tabelas por ids diferentes (por exemplo id_evento nunca junta com id_atividade, são ids completamente diferentes)
 
 Peculiaridades das tabelas:
-- Um participante na lista de espera de uma sessao necessariamente não está em Part_Sessao
-- Um evento nunca é determinado apenas pelo nome, precisa também da edição, ou apenas o id_evento
-- Uma sessão única é determinada por n_sessao e do id_atividade
-- Informações que não são chaves primárias sempre estaram na tabela de origem e nunca nas tabelas de relação, por exemplo, nome de um pessoa estará na tabela Pessoa e não em Part_Sessao
+- Um participante na lista de espera de uma sessao necessariamente não está em Part_Sessao da mesma sessão
+- Um evento único nunca é determinado apenas pelo nome, precisa também da edição, ou apenas de id_evento
+- Uma sessão única é determinada por n_sessao, id_atividade, nunca apenas por n_sessao isolado
+- Informações que não são chaves primárias sempre estaram na tabela de origem e nunca nas tabelas de relação
+- **ATENÇÃO:** Ao relacionar uma tabela principal (como Sessao) com duas ou mais tabelas de relação independentes (como Part_Sessao e Lista_de_Espera) para contagens, NUNCA use múltiplos LEFT JOIN diretos.
+- As tabelas Participante, Palestrante, Instrutor e Organizador não têm nome nem email: guardam só o CPF e dados do papel. Para nome ou email, faça JOIN com Pessoa pelo CPF.
 
+- Como ligar cada papel a um EVENTO (cada papel usa um caminho diferente):
+  * participante: Part_Evento (já tem id_evento e CPF).
+  * palestrante: Pales_Ativ -> Atividade (por id_atividade) -> id_evento.
+  * instrutor: Inst_Sessao -> Atividade (por id_atividade) -> id_evento.
+  * organizador: Organizador_Organizacao -> Org_Evento (por CNPJ) -> id_evento.
+
+- As colunas e_participante, e_palestrante, e_instrutor e e_organizador de Pessoa indicam que a pessoa
+  tem o papel EM GERAL, não em qual evento. NUNCA use essas colunas para contar papéis por evento:
+  use as tabelas de vínculo acima.
+
+- Para contar pessoas distintas por papel e o total de pessoas distintas de um evento, primeiro
+  una os vínculos em uma CTE (UNION ALL de id_evento, CPF, papel) e depois agregue com
+  COUNT(DISTINCT CPF) e FILTER por papel.
+ 
+- Em CTEs com UNION ALL, as colunas de todos os ramos devem ter o mesmo significado. A coluna id_evento
+  só pode receber a coluna id_evento de Evento, Atividade, Part_Evento ou Org_Evento, nunca id_atividade
+  ou outro id.
+
+Funções de janela (OVER) - conceitos básicos:
+- Uma função de janela calcula um valor para CADA linha olhando para um conjunto de linhas
+  relacionadas, sem reduzir o número de linhas (diferente do GROUP BY, que junta linhas).
+- Forma: FUNCAO(...) OVER (PARTITION BY coluna_grupo ORDER BY coluna_ordem)
+  * PARTITION BY divide as linhas em grupos independentes (ex.: um grupo por evento). Sem ele, a janela é a tabela toda.
+  * ORDER BY define a ordem dentro do grupo. Com ORDER BY, funções de agregação (SUM, COUNT, AVG)
+    passam a ser cumulativas: cada linha considera da primeira linha do grupo até ela mesma.
+    Sem ORDER BY, consideram o grupo inteiro (útil para total e percentual do total).
+- Funções comuns:
+  * SUM(valor) OVER (...): soma. Com ORDER BY é o acumulado; sem ORDER BY é o total do grupo.
+  * COUNT(*) OVER (...): conta LINHAS da janela, não soma um valor já calculado. Para acumular
+    uma contagem já calculada, some a coluna: SUM(contagem) OVER (...).
+  * LAG(valor) / LEAD(valor) OVER (...): valor da linha anterior / seguinte na ordem definida.
+    Variação em relação ao anterior = valor - LAG(valor) OVER (...).
+  * ROW_NUMBER, RANK, DENSE_RANK OVER (...): posição na ordem (RANK repete em empates).
+  * Percentual do total = 100.0 * valor / NULLIF(SUM(valor) OVER (PARTITION BY ...), 0).
+- Ordem de avaliação do SQL: FROM/JOIN -> WHERE -> GROUP BY -> funções de janela -> ORDER BY final.
+  Por isso a janela só enxerga as linhas que sobraram depois do GROUP BY e as colunas/agregados
+  já calculados. Para combinar uma agregação com uma janela, calcule a agregação primeiro em uma
+  CTE (WITH) ou subconsulta, com uma linha por entidade, e aplique a janela no SELECT externo
+  usando as colunas já calculadas.
+- Quando o ORDER BY da janela puder ter empates (ex.: dois horários iguais), acrescente colunas
+  que desempatam (como a chave primária), para o resultado ser determinístico.
 
 Exemplos:
 Pergunta: Quais espaços têm capacidade maior que 100?
 SQL: SELECT nome, capacidade FROM Espaco WHERE capacidade > 100 ORDER BY capacidade DESC
 
 Pergunta: Quais atividades pertencem ao evento Semana de Tecnologia?
-SQL: SELECT a.titulo FROM Atividade a JOIN Evento e ON e.id_evento = a.id_evento WHERE e.nome = 'Semana de Tecnologia'"""
+SQL: SELECT a.titulo FROM Atividade a JOIN Evento e ON e.id_evento = a.id_evento WHERE e.nome = 'Semana de Tecnologia'
+
+Pergunta: Quantos participantes estão aguardando na fila de espera em cada sessão?
+SQL: SELECT a.titulo, s.n_sessao, (SELECT COUNT(*) FROM Lista_de_Espera l WHERE l.id_atividade = s.id_atividade AND l.n_sessao = s.n_sessao) AS total_na_fila 
+FROM Sessao s JOIN Atividade a ON a.id_atividade = s.id_atividade ORDER BY total_na_fila DESC
+
+Pergunta: Quantas sessões cada evento tem?
+SQL: SELECT e.nome, e.edicao, COUNT(s.n_sessao) AS total_sessoes FROM Evento e JOIN Atividade a ON e.id_evento = a.id_evento 
+JOIN Sessao s ON a.id_atividade = s.id_atividade GROUP BY e.id_evento, e.nome, e.edicao ORDER BY total_sessoes DESC
+
+Pergunta: Quantas pessoas distintas participam de cada evento como participante e como palestrante, e quantas no total?
+SQL: WITH envolvidos AS (SELECT pe.id_evento, pe.CPF, 'participante' AS papel FROM Part_Evento pe UNION ALL SELECT a.id_evento, pa.CPF, 'palestrante' FROM Pales_Ativ pa JOIN Atividade a ON a.id_atividade = pa.id_atividade) SELECT e.nome, e.edicao, COUNT(DISTINCT x.CPF) FILTER (WHERE x.papel = 'participante') AS participantes, COUNT(DISTINCT x.CPF) FILTER (WHERE x.papel = 'palestrante') AS palestrantes, COUNT(DISTINCT x.CPF) AS total_pessoas 
+FROM Evento e LEFT JOIN envolvidos x ON x.id_evento = e.id_evento GROUP BY e.id_evento, e.nome, e.edicao ORDER BY e.nome, e.edicao
+
+Pergunta: Para cada evento, mostre quantas sessões tem cada atividade, o acumulado de sessões no evento e a diferença em relação à atividade anterior.
+SQL: WITH por_atividade AS (SELECT e.id_evento, e.nome AS evento, e.edicao, a.id_atividade, a.titulo AS atividade, (SELECT COUNT(*) FROM Sessao s WHERE s.id_atividade = a.id_atividade) AS total_sessoes FROM Evento e JOIN Atividade a ON a.id_evento = e.id_evento) 
+SELECT evento, edicao, atividade, total_sessoes, SUM(total_sessoes) OVER (PARTITION BY id_evento ORDER BY id_atividade) AS acumulado, total_sessoes - LAG(total_sessoes) OVER (PARTITION BY id_evento ORDER BY id_atividade) AS variacao_anterior FROM por_atividade ORDER BY evento, edicao, id_atividade
+'"""
+
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": pergunta},
@@ -459,7 +524,7 @@ def gerar_sql(client, mensagens):
             # e devolver o campo de conteúdo vazio.
             think=False,
             # temperature 0 = respostas mais determinísticas (melhor para SQL)
-            options={"temperature": 0, "num_ctx": 8192},
+            options={"temperature": 0, "num_ctx": 16384},
         )
     except Exception:
         # Plano B: sem o parâmetro think. Cobre biblioteca ollama antiga (que não
@@ -469,14 +534,19 @@ def gerar_sql(client, mensagens):
         response = client.chat(
             model=config["ollama"]["model"],
             messages=mensagens,
-            options={"temperature": 0, "num_ctx": 8192},
+            options={"temperature": 0, "num_ctx": 16384},
         )
+    print("DEBUG:", response.get("done_reason"),
+      "| prompt:", response.get("prompt_eval_count"),
+      "| gerados:", response.get("eval_count"),
+      "| thinking:", len(response["message"].get("thinking") or ""),
+      "| content:", len(response["message"].get("content") or ""))
     resposta = response["message"]["content"] or ""
     return limpar_sql(resposta)
 
 
 # Quantas vezes o modelo pode tentar (1 tentativa + correções após erro do banco)
-MAX_TENTATIVAS = 3
+MAX_TENTATIVAS = 5
 
 
 def pergunta_linguagem_natural(conn, client, ddl):
