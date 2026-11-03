@@ -82,6 +82,11 @@ BEGIN
         RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
     END IF;
     
+    --participante não pode se inscrever duas vezes na mesma sessão
+    IF EXISTS (SELECT 1 FROM Part_Sessao WHERE CPF = NEW.CPF AND n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade) 
+        THEN RAISE EXCEPTION 'Erro: Participante já está inscrito nesta sessão.'; 
+    END IF;
+   
     --Participante deve estar inscrito no evento da atividade
     IF NOT EXISTS (
         SELECT 1 FROM Part_Evento PE

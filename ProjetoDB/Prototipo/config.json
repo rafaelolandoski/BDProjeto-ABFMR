@@ -4,7 +4,7 @@
         "port": 5432,
         "dbname": "postgres",
         "user": "postgres",
-        "password": "Uirapur1"
+        "password": "Generico"
     },
     "ollama": {
         "host": "http://localhost:11434",

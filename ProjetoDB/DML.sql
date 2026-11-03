@@ -408,7 +408,7 @@ INSERT INTO Lista_de_Espera (CPF, n_sessao, id_atividade, dataInscricao) VALUES
 ('70000000024', 1, 11, '2026-07-20 09:05:00'),
 ('70000000025', 1, 11, DEFAULT),
 ('70000000021', 1, 27, '2026-10-27 09:00:00'),
-('70000000022', 1, 27, '2026-10-27 09:10:00');       -- uses CURRENT_TIMESTAMP
+('70000000022', 1, 27, '2026-10-27 09:10:00');       
  
 -- ---------------------------------------------------------------------
 -- Inst_Sessao: instructors are never participants or speakers of the
