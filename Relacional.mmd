@@ -43,54 +43,54 @@ erDiagram
     %% =====================================================
     EVENTO {
         integer id_evento PK
-        varchar50 nome UK "UNIQUE(nome, edicao)"
-        bigint edicao UK "UNIQUE(nome, edicao)"
-        date data_inicio "CHECK inicio <= fim"
-        date data_fim
+        varchar50 nome UK "UNIQUE(nome, edicao), NOT NULL"
+        bigint edicao UK "UNIQUE(nome, edicao), NOT NULL"
+        date data_inicio "CHECK inicio <= fim, NOT NULL"
+        date data_fim "NOT NULL"
     }
 
     ATIVIDADE {
         integer id_atividade PK
-        integer id_evento FK, UK "UNIQUE(titulo, id_evento)"
-        varchar50 titulo UK "UNIQUE(titulo, id_evento)"
+        integer id_evento FK, UK "UNIQUE(titulo, id_evento), NOT NULL"
+        varchar50 titulo UK "UNIQUE(titulo, id_evento) NOT NULL"
         text descricao
     }
 
     ESPACO {
         integer id_espaco PK
-        varchar50 nome
-        smallint capacidade "CHECK > 0"
+        varchar50 nome "NOT NULL"
+        smallint capacidade "CHECK > 0, NOT NULL"
     }
 
     SESSAO {
         smallint n_sessao PK
         integer id_atividade PK, FK
-        integer id_espaco FK
-        timestamp horario_inicio "CHECK inicio < fim"
-        timestamp horario_fim
+        integer id_espaco FK "NOT NULL"
+        timestamp horario_inicio "CHECK inicio < fim, NOT NULL"
+        timestamp horario_fim "NOT NULL"
         smallint vagas "CHECK > 0 OR NULL (NULL = sem limite)"
     }
 
     TIPO_RECURSO {
         integer id_tipo PK
-        proposito tipo UK "ENUM"
+        proposito tipo UK "ENUM, NOT NULL"
     }
 
     RECURSO {
         integer id_recurso PK
-        integer id_tipo FK
+        integer id_tipo FK "NOT NULL"
         integer id_espaco FK
-        varchar50 nome
-        varchar50 marca
-        numeric preco "numeric(9,2)"
-        date dataCompra
+        varchar50 nome "NOT NULL"
+        varchar50 marca "NOT NULL"
+        numeric preco "numeric(9,2), NOT NULL"
+        date dataCompra "NOT NULL"
         integer validade "anos, CHECK > 0"
     }
 
     ORGANIZACAO {
         char14 CNPJ PK
-        varchar50 nome
-        tp org_tipo "ENUM"
+        varchar50 nome "NOT NULL"
+        tp org_tipo "ENUM, NOT NULL"
     }
 
     %% =====================================================
