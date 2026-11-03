@@ -32,6 +32,7 @@ Q6: Nao ha historico de alteracoes: apenas a programacao atual da sessao e armaz
 3. DDL COMPLETO
 ============================================================
 
+
 CREATE TYPE proposito AS ENUM ('Audio', 'Microfone', 'Computador', 'Projetor','Quadro','Mesa','Ventilacao');
 CREATE TYPE tp AS ENUM ('Individuo', 'Empresa', 'Universidade', 'Associacao');
 
@@ -289,7 +290,14 @@ BEGIN
         WHERE atv.id_atividade=NEW.id_atividade AND COALESCE(er.qtd_rec,0) < atr.quantidade
         ) THEN RAISE EXCEPTION 'Erro: O espaço não possui recursos o suficiente';
     END IF;
-
+    -- sessões de uma mesma atividade não podem se sobrepor no tempo
+    IF EXISTS( SELECT 1 FROM Sessao WHERE id_atividade = NEW.id_atividade
+        AND NOT (TG_OP = 'UPDATE' AND n_sessao = OLD.n_sessao AND id_atividade = OLD.id_atividade)
+        AND (NEW.horario_inicio, NEW.horario_fim) OVERLAPS (horario_inicio, horario_fim)
+        )
+        THEN RAISE EXCEPTION 'Erro: a sessao (% ate %) se sobrepoe a outra sessao da mesma atividade',
+        NEW.horario_inicio, NEW.horario_fim;
+    END IF; 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -317,6 +325,11 @@ BEGIN
         RAISE EXCEPTION 'Erro: Esta sessão possui vagas ilimitadas e não requer inscrição prévia.';
     END IF;
     
+    --participante não pode se inscrever duas vezes na mesma sessão
+    IF EXISTS (SELECT 1 FROM Part_Sessao WHERE CPF = NEW.CPF AND n_sessao = NEW.n_sessao AND id_atividade = NEW.id_atividade) 
+        THEN RAISE EXCEPTION 'Erro: Participante já está inscrito nesta sessão.'; 
+    END IF;
+   
     --Participante deve estar inscrito no evento da atividade
     IF NOT EXISTS (
         SELECT 1 FROM Part_Evento PE
