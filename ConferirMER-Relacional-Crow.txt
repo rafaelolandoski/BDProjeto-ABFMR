@@ -6,101 +6,101 @@
 // São 20 tabelas (demora menos de 20 minutos pra conferir tudo)
 
 1.  Evento:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 2.  Atividade:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 3.  Espaco:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 4.  Sessao:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 5.  Tipo_Recurso:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 6.  Recurso:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 7.  Pessoa:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 8.  Palestrante:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 9.  Participante:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 10. Instrutor:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 11. Organizador:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 12. Organizacao:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 13. Org_Evento:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 14. Part_Evento:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 15. Part_Sessao:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 16. Lista_de_Espera:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 17. Inst_Sessao:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 18. Ativ_Tipo_Recurso:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 19. Pales_Ativ:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
 
 20. Organizador_Organizacao:
-    Rafael      -   conferido
+    Rafael      -   conferido x2
     Matheus     -   
     Alexandre   -   
