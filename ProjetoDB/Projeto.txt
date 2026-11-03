@@ -9,7 +9,7 @@ Nome: Alexandre Coura Serravite	NUSP:15507531
 Nome: Rafael Olandoski de Oliveira	NUSP:15485382
 Nome: Matheus Watanabe de Vilhena	NUSP:15479767
 
-MODELO UTILIZADO NO OLLAMA: qwen3.5:9b
+MODELO UTILIZADO NO OLLAMA: gpt-oss:20b
 ============================================================
 1. DESCRICAO FINAL DO SISTEMA
 ============================================================
@@ -483,7 +483,7 @@ EXECUTE FUNCTION validar_organizacao_organizador();
 ============================================================
 CONSULTA 1
 
-OBJETIVO: Listar o cronograma (atividades, sessoes, horarios, vagas e espacos) da Semana da Engenharia de Computacao 2026, ordenado por horario.
+OBJETIVO: Listar o cronograma (atividades, sessoes, horarios, vagas e espacos) da Semana de Tecnologia 5, ordenado por horario.
 SQL:
 -- selecionar cronograma do evento x
 
