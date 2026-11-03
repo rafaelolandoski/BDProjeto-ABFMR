@@ -35,6 +35,7 @@ ProjetoBD/
 |-- DML.sql
 |-- ER.pdf
 |-- Relacional.pdf
+|-- Relacional.mmd
 |-- Instrucoes.txt
 |-- Prototipo/
     |-- main.py
