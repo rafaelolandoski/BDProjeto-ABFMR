@@ -454,7 +454,8 @@ Funções de janela (OVER) - conceitos básicos:
   usando as colunas já calculadas.
 - Quando o ORDER BY da janela puder ter empates (ex.: dois horários iguais), acrescente colunas
   que desempatam (como a chave primária), para o resultado ser determinístico.
-
+-A função OVERLAPS no SQL é um operador que retorna verdadeiro se dois intervalos de tempo se sobrepõem. A sintaxe é: (data_inicio1, data_fim1) OVERLAPS (data_inicio2, data_fim2). 
+use-a para verificar se têm horários que se cruzam.
 Exemplos:
 Pergunta: Quais espaços têm capacidade maior que 100?
 SQL: SELECT nome, capacidade FROM Espaco WHERE capacidade > 100 ORDER BY capacidade DESC
