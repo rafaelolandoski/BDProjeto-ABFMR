@@ -84,7 +84,7 @@ portanto pode ser executado novamente sem causar duplicidade.
     aplicativo estar aberto; no Linux, ou se necessario, rode
     "ollama serve" em outro terminal):
 
-    ollama pull qwen3:8b
+    ollama pull gpt-oss:20b
 
     Para conferir, abra http://localhost:11434 no navegador (deve
     exibir "Ollama is running") e rode "ollama list".
@@ -94,8 +94,6 @@ portanto pode ser executado novamente sem causar duplicidade.
     cd ProjetoBD/Prototipo
 
     As dependencias (ollama e psycopg[binary]) sao instaladas
-    automaticamente pelo main.py na primeira execucao, caso ainda
-    nao estejam presentes. Se a instalacao automatica falhar, instale
     manualmente:
 
     python -m pip install -r requirements.txt
@@ -130,17 +128,7 @@ portanto pode ser executado novamente sem causar duplicidade.
         [7] Pergunta em linguagem natural: digite uma pergunta em
             portugues; o modelo do Ollama gera o SQL, que e exibido,
             executado e o resultado (ou a mensagem de erro) e
-            apresentado. Importante,
-        Importante: 
-        - o main usa think="medium" para o modelo, caso o modelo não reconheça ele roda sem o parâmetro think.
-        - a janela de contexto é de 16384 tokens, e o modelo imprime os tokens gastos no prompt+ os gerados,
-        caso esse total ultrapasse 16384, provavelmente é necessário aumentar a janela(linhas 528 e 538 do main.py), o prompt
-        em si já terá em torno de 4000 tokens devido as diretrizes qu a IA recebe como base.
-        - o modelo pode tentar até 5 vezes em gerar o sql correto, se achar esse número muito pequno, 
-        aumente-o na linha 550 do main.py
-        - a saída também exibe o SQL gerado pelo modelo para o usuário, 
-        permitindo ao usuário checar se a consulta foi feita corretamente
-
+            apresentado.
         [0] Sair.
 
 ============================================================
@@ -159,6 +147,15 @@ portanto pode ser executado novamente sem causar duplicidade.
 - O programa funciona apenas em linha de comando; nao ha interface
   grafica.
 - Nao ha funcionalidades conhecidas como nao concluidas.
+
+- o main usa think="medium" para o modelo, caso o modelo não reconheça ele roda sem o parâmetro think.
+- a janela de contexto é de 16384 tokens (determinado nas linhas 528 e 538 do main.py), 
+e o modelo imprime os tokens gastos no prompt + os gerados,
+caso esse total ultrapasse 16384, provavelmente a pergunta foi muito complexa e o modelo não conseguira responder, o prompt
+em si já terá em torno de 4000 tokens devido as diretrizes que a IA recebe como base.
+- o modelo pode tentar até 5 vezes em gerar o sql correto, visto na linha 550 do main.py
+- a saída também exibe o SQL gerado pelo modelo para o usuário, 
+permitindo ao usuário checar se a consulta foi feita corretamente
 ============================================================
 FIM DO ARQUIVO
 ============================================================
