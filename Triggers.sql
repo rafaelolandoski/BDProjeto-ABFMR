@@ -219,15 +219,17 @@ BEGIN
     -- Validação: Organização individual não pode ter mais de um organizador
     IF EXISTS (
         SELECT 1 FROM Organizacao
-            WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individuo'
-        ) AND EXISTS (
-            SELECT 1 FROM Organizador_Organizacao
-            WHERE CNPJ = NEW.CNPJ
-        ) THEN RAISE EXCEPTION 'Erro: Esta organização individual já possui um organizador.';
+        WHERE CNPJ = NEW.CNPJ AND org_tipo = 'Individuo'
+    ) AND EXISTS (
+        SELECT 1 FROM Organizador_Organizacao
+        WHERE CNPJ = NEW.CNPJ
+          AND NOT (TG_OP = 'UPDATE' AND CPF = OLD.CPF AND CNPJ = OLD.CNPJ)
+    )
+    THEN
+        RAISE EXCEPTION 'Erro: Esta organização individual já possui um organizador.';
     END IF;
 
     RETURN NEW;
-
 END;
 $$ LANGUAGE plpgsql;
 
