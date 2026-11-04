@@ -520,12 +520,12 @@ def gerar_sql(client, mensagens):
         response = client.chat(
             model=config["ollama"]["model"],
             messages=mensagens,
-            # think=False desliga o "raciocínio" de modelos como o qwen3.5.
-            # Com ele ligado, o modelo pode gastar toda a resposta pensando
-            # e devolver o campo de conteúdo vazio.
+            
+
+        
             think="medium",
             # temperature 0 = respostas mais determinísticas (melhor para SQL)
-            options={"temperature": 0, "num_ctx": 16384},
+            options={"temperature": 0, "num_ctx": 24000},
         )
     except Exception:
         # Plano B: sem o parâmetro think. Cobre biblioteca ollama antiga (que não
@@ -535,7 +535,7 @@ def gerar_sql(client, mensagens):
         response = client.chat(
             model=config["ollama"]["model"],
             messages=mensagens,
-            options={"temperature": 0, "num_ctx": 16384},
+            options={"temperature": 0, "num_ctx": 24000},
         )
     print("DEBUG:", response.get("done_reason"),
       "| prompt:", response.get("prompt_eval_count"),
